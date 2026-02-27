@@ -20,6 +20,7 @@ interface EditItemModalProps {
     recurrence_strategy?: string | null;
     assignee_id?: string | null;
     assignee_notes?: string | null;
+    cognitive_load_score?: number | null;
   }) => void;
   showAssignment?: boolean;
   favourites?: UserLookup[];
@@ -54,6 +55,7 @@ export function EditItemModal({
       recurrence_strategy?: string | null;
       assignee_id?: string | null;
       assignee_notes?: string | null;
+      cognitive_load_score?: number | null;
     }) => {
       onSubmit(values);
       onClose();

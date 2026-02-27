@@ -6,6 +6,7 @@ import type {
   User,
   UserLookup,
   NotificationsResponse,
+  CognitivePhaseResponse,
 } from "@/types";
 import { getAuthHeaders, clearToken } from "./auth";
 
@@ -179,6 +180,7 @@ export async function createItem(payload: {
   recurrence_rule?: string | null;
   recurrence_strategy?: string | null;
   assignee_id?: string | null;
+  cognitive_load_score?: number | null;
 }): Promise<Item> {
   const response = await fetch(buildUrl("/api/items"), {
     method: "POST",
@@ -194,6 +196,7 @@ export async function createItem(payload: {
       recurrence_rule: payload.recurrence_rule || null,
       recurrence_strategy: payload.recurrence_strategy || null,
       assignee_id: payload.assignee_id || null,
+      cognitive_load_score: payload.cognitive_load_score ?? null,
     }),
   });
 
@@ -237,6 +240,7 @@ export async function updateItem(
       | "recurrence_rule"
       | "recurrence_strategy"
       | "assignee_id"
+      | "cognitive_load_score"
     >
   >,
 ): Promise<Item> {
@@ -261,6 +265,26 @@ export async function deleteItem(id: string): Promise<{ ok: true }> {
 
   await handleResponse<void>(response);
   return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cognitive Phase
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch the authenticated user's current cognitive phase analysis.
+ */
+export async function fetchCognitivePhase(): Promise<CognitivePhaseResponse> {
+  const response = await fetch(buildUrl("/api/user/cognitive-phase"), {
+    method: "GET",
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+
+  const payload = await handleResponse<
+    CognitivePhaseResponse | { data?: CognitivePhaseResponse }
+  >(response);
+  return extractData(payload);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

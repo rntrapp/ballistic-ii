@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { useRouter } from "next/navigation";
-import type { Item, ItemScope, Project } from "@/types";
+import type { Item, ItemScope, Project, CognitivePhaseResponse } from "@/types";
 import {
   fetchItems,
   createItem,
@@ -11,6 +11,7 @@ import {
   reorderItems,
   fetchProjects,
   createProject,
+  fetchCognitivePhase,
 } from "@/lib/api";
 import { ItemRow } from "@/components/ItemRow";
 import { EmptyState } from "@/components/EmptyState";
@@ -18,6 +19,7 @@ import { SplashScreen } from "@/components/SplashScreen";
 import { SettingsModal } from "@/components/SettingsModal";
 import { NotesModal } from "@/components/NotesModal";
 import { EditItemModal } from "@/components/EditItemModal";
+import { CognitiveWave } from "@/components/CognitiveWave";
 import { useAuth } from "@/contexts/AuthContext";
 
 function normaliseItemResponse(payload: Item | { data?: Item }): Item {
@@ -67,6 +69,16 @@ function sortByUrgency(items: Item[]): Item[] {
   });
 }
 
+function applyCognitiveSort(items: Item[], phase: string): Item[] {
+  return [...items].sort((a, b) => {
+    const scoreA = a.cognitive_load_score ?? 5;
+    const scoreB = b.cognitive_load_score ?? 5;
+    if (phase === "Trough") return scoreA - scoreB; // easy first
+    if (phase === "Peak") return scoreB - scoreA; // hard first
+    return 0; // Recovery: no reorder
+  });
+}
+
 export default function Home() {
   const router = useRouter();
   const {
@@ -96,7 +108,9 @@ export default function Home() {
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
-  const { dates, delegation } = useFeatureFlags();
+  const { dates, delegation, cognitivePhase } = useFeatureFlags();
+  const [cognitivePhaseData, setCognitivePhaseData] =
+    useState<CognitivePhaseResponse | null>(null);
 
   const showError = useCallback((message: string) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -144,6 +158,15 @@ export default function Home() {
         .finally(() => setLoading(false));
     }
   }, [isAuthenticated, viewScope, dates, delegation]);
+
+  // Fetch cognitive phase data when feature flag is enabled
+  useEffect(() => {
+    if (isAuthenticated && cognitivePhase) {
+      fetchCognitivePhase().then(setCognitivePhaseData).catch(console.error);
+    } else {
+      setCognitivePhaseData(null);
+    }
+  }, [isAuthenticated, cognitivePhase]);
 
   // Handle scrolling to newly added items
   useEffect(() => {
@@ -230,7 +253,13 @@ export default function Home() {
   }, [isAuthenticated, viewScope, delegation]);
 
   // Sort my tasks by urgency (only when dates feature is enabled)
-  const sortedItems = dates ? sortByUrgency(items) : items;
+  const urgencySorted = dates ? sortByUrgency(items) : items;
+
+  // Apply cognitive phase-aware sorting when confidence is high enough
+  const sortedItems =
+    cognitivePhaseData && cognitivePhaseData.confidence_score > 0.3
+      ? applyCognitiveSort(urgencySorted, cognitivePhaseData.current_phase)
+      : urgencySorted;
 
   // Apply project filter client-side
   const filteredItems = filterProjectId
@@ -256,6 +285,15 @@ export default function Home() {
     setItems(updater);
     setAssignedItems(updater);
     setDelegatedItems(updater);
+
+    // Re-fetch cognitive phase when a task status changes to done
+    if (
+      cognitivePhase &&
+      typeof itemOrUpdater !== "function" &&
+      itemOrUpdater.status === "done"
+    ) {
+      fetchCognitivePhase().then(setCognitivePhaseData).catch(console.error);
+    }
   }
 
   // Decline (reject) an assigned task — optimistically removes from assigned list
@@ -496,6 +534,11 @@ export default function Home() {
             Back to active
           </button>
         </div>
+      )}
+
+      {/* Cognitive Phase Wave */}
+      {cognitivePhaseData && cognitivePhaseData.confidence_score > 0 && (
+        <CognitiveWave phase={cognitivePhaseData} />
       )}
 
       {/* List */}
@@ -811,6 +854,8 @@ export default function Home() {
               ...editingItem,
               title: v.title,
               description: v.description || null,
+              cognitive_load_score:
+                v.cognitive_load_score ?? editingItem.cognitive_load_score,
               assignee_notes:
                 v.assignee_notes !== undefined
                   ? v.assignee_notes
@@ -844,6 +889,7 @@ export default function Home() {
               recurrence_strategy:
                 (v.recurrence_strategy as Item["recurrence_strategy"]) ?? null,
               assignee_id: v.assignee_id,
+              cognitive_load_score: v.cognitive_load_score,
             }).catch((error) => {
               console.error("Failed to update item:", error);
               const revert = (prev: Item[]) =>
@@ -868,6 +914,7 @@ export default function Home() {
               description: v.description || null,
               status: "todo",
               position: items.length,
+              cognitive_load_score: v.cognitive_load_score ?? null,
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               completed_at: null,
@@ -914,6 +961,7 @@ export default function Home() {
               recurrence_rule: v.recurrence_rule,
               recurrence_strategy: v.recurrence_strategy,
               assignee_id: v.assignee_id,
+              cognitive_load_score: v.cognitive_load_score,
             })
               .then((created) => {
                 const resolvedItem = normaliseItemResponse(created);

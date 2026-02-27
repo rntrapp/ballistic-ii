@@ -9,6 +9,7 @@ export interface User {
   feature_flags?: {
     dates: boolean;
     delegation: boolean;
+    cognitive_phase: boolean;
   } | null;
   email_verified_at: string | null;
   created_at: string;
@@ -52,6 +53,7 @@ export interface Item {
   assignee_notes: string | null;
   status: Status;
   position: number;
+  cognitive_load_score: number | null;
   scheduled_date: string | null;
   due_date: string | null;
   completed_at: string | null;
@@ -116,3 +118,18 @@ export const RECURRENCE_PRESET_RULES: Record<RecurrencePreset, string | null> =
     weekly: "FREQ=WEEKLY",
     monthly: "FREQ=MONTHLY",
   };
+
+export interface CognitiveEvent {
+  recorded_at: string;
+  cognitive_load_score: number;
+  event_type: string;
+}
+
+export interface CognitivePhaseResponse {
+  dominant_cycle_minutes: number;
+  current_phase: "Peak" | "Trough" | "Recovery";
+  phase_progress: number;
+  next_peak_at: string;
+  confidence_score: number;
+  today_events: CognitiveEvent[];
+}

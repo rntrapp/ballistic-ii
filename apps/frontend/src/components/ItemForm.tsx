@@ -27,6 +27,7 @@ type Props = {
     recurrence_strategy?: string | null;
     assignee_id?: string | null;
     assignee_notes?: string | null;
+    cognitive_load_score?: number | null;
   }) => void;
   onCancel: () => void;
   submitLabel?: string;
@@ -48,7 +49,7 @@ export function ItemForm({
   favourites,
   onFavouriteToggled,
 }: Props) {
-  const { dates, delegation } = useFeatureFlags();
+  const { dates, delegation, cognitivePhase } = useFeatureFlags();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [projectId, setProjectId] = useState<string | null>(
@@ -69,6 +70,9 @@ export function ItemForm({
   );
   const [assigneeNotes, setAssigneeNotes] = useState(
     initial?.assignee_notes ?? "",
+  );
+  const [cognitiveLoadScore, setCognitiveLoadScore] = useState<number>(
+    initial?.cognitive_load_score ?? 5,
   );
   const [showMoreSettings, setShowMoreSettings] = useState(!!initial); // Open by default for edit mode
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -93,6 +97,7 @@ export function ItemForm({
             recurrencePreset !== "none" ? recurrenceStrategy : null,
           assignee_id: assignee?.id ?? null,
           assignee_notes: isAssignee ? assigneeNotes || null : undefined,
+          cognitive_load_score: cognitivePhase ? cognitiveLoadScore : undefined,
         });
       }}
     >
@@ -248,6 +253,29 @@ export function ItemForm({
                   </div>
                 )}
               </>
+            )}
+
+            {cognitivePhase && (
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  Effort level ({cognitiveLoadScore}/10)
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="1"
+                  value={cognitiveLoadScore}
+                  onChange={(e) =>
+                    setCognitiveLoadScore(Number(e.target.value))
+                  }
+                  className="w-full accent-[var(--blue)]"
+                />
+                <div className="flex justify-between text-xs text-slate-400 mt-0.5">
+                  <span>Easy</span>
+                  <span>Hard</span>
+                </div>
+              </div>
             )}
 
             {delegation && (

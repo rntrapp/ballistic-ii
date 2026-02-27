@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-02-27
+
+### Added
+
+#### Cognitive Phase Tracker
+
+- **`cognitive_events` table**: New migration creates a high-resolution task telemetry table with UUID primary keys, `user_id`/`item_id` foreign keys, `event_type` (started/completed/cancelled), `cognitive_load_score` (1-10), and `recorded_at` timestamp. Indexed on `(user_id, recorded_at)` and `(user_id, event_type)`.
+- **`cognitive_load_score` field on items**: New `unsignedTinyInteger` nullable column on the `items` table, allowing users to rate task effort from 1-10.
+- **`CognitiveEvent` model**: Final class with UUID primary key, `user()` and `item()` BelongsTo relationships, and factory with `started()`, `completed()`, `cancelled()`, `withScore(int)`, and `at(string)` state methods.
+- **`ItemObserver`**: Automatically logs cognitive events when an item's status transitions — `todo→doing` = started, `any→done` = completed, `any→wontdo` = cancelled. Auto-estimates cognitive load score (1-10) based on description length, due date, and project presence when no explicit score is set.
+- **`ChronobiologyService`**: Pure PHP implementation of the Lomb-Scargle periodogram for spectral analysis of unevenly-spaced time-series data. Analyses 14 days of task completion timestamps to detect each user's dominant ultradian cycle (typically 90-120 minutes) and determines the current cognitive phase (Peak, Trough, or Recovery). Includes trig-identity caching and Nyquist-aware decimation for sub-400ms performance on 5,000+ data points.
+- **`RecalibrateCognitivePhaseJob`**: Queued job (tries=3, backoff=5s) that recalculates and caches cognitive phase analysis for 5 minutes upon task completion.
+- **`GET /api/user/cognitive-phase` endpoint**: Returns the authenticated user's current cognitive phase analysis including dominant cycle length, current phase, phase progress, next peak timestamp, confidence score, and today's events. Uses cache-first strategy with on-demand computation fallback.
+- **`cognitive_phase` feature flag**: New boolean flag on `users.feature_flags` — controls visibility of the cognitive phase tracker UI and effort level slider.
+
+#### Frontend
+
+- **Cognitive Phase Waveform (`CognitiveWave`)**: SVG-based sinusoidal waveform visualising the user's productivity rhythm across 24 hours with peak/trough fill regions, event dots colour-coded by effort (green/amber/red), and a pulsing "now" indicator line.
+- **Phase Indicator (`PhaseIndicator`)**: Inline badge displaying current phase and countdown to next peak.
+- **Phase-aware task sorting**: When confidence score exceeds 0.3, tasks are reordered by cognitive load — hard tasks first during Peak, easy tasks first during Trough, no reorder during Recovery.
+- **Effort level slider**: New 1-10 range input in the "More settings" section of the task form (visible when cognitive phase feature flag is on).
+- **Settings toggle**: New "Cognitive Phase Tracker" toggle in the features section.
+
+### Tests
+
+- **`ChronobiologyServiceTest` (14 tests)**: Known sine-wave frequency recovery, periodic completion detection, insufficient data handling, zero-variance guard, 5,000-point performance benchmark (<400ms), decimation correctness, full response shape validation, phase_progress bounds (0-1), next_peak_at future ISO 8601 validation, next_peak_at phase-consistency (targets Peak entry at 5π/3), today_events population, 14-day lookback exclusion, mapPhase boundary conditions, zero-events default.
+- **`CognitivePhaseTest` (26 tests)**: Observer status-transition logging (started/completed/cancelled/non-mapped/non-status), cognitive load scoring (explicit, auto-estimated, heuristic complexity), recorded_at datetime type, RecalibrateCognitivePhaseJob dispatch/cache, endpoint auth/default/full-structure/periodic-detection/today-events/cache-hit, cognitive_load_score validation (rejects 0/11/-1/non-integer), existing CRUD smoke test.
+
+### Fixed
+
+- **`next_peak_at` calculation**: Corrected the mathematical formula so that `next_peak_at` targets the Peak entry point (phase = 5π/3) rather than the cycle origin (phase = 0). The previous calculation overestimated time-to-peak by T/6 (15-20 minutes for typical ultradian cycles).
+- **Vite manifest errors in test suite**: The `runtests.sh` script now auto-builds Vite assets (via `APP_ENV=testing npm run build`) when `public/build/manifest.json` is missing. This resolves 16 pre-existing test failures in Blade/Inertia rendering tests (admin dashboard, auth screens, settings pages) that required a Vite manifest.
+- **Wayfinder route generation**: Ran `wayfinder:generate --env=testing` to produce the action stubs required by the Inertia pages, unblocking the Vite build in environments without a running database.
+
 ## [0.15.0] - 2026-02-08
 
 ### Added
@@ -870,3 +904,4 @@ With the existing master features:
 - Comprehensive test suite for Project model functionality
 - User relationship on Project model
 - Soft deletes support for archiving projects
+

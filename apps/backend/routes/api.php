@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CognitivePhaseController;
 use App\Http\Controllers\Api\FavouriteController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\ConnectionController;
@@ -32,6 +33,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // User profile
     Route::get('/user', [UserController::class, 'show']);
     Route::patch('/user', [UserController::class, 'update']);
+
+    // Cognitive phase analysis
+    Route::get('/user/cognitive-phase', [CognitivePhaseController::class, 'show']);
 
     // Favourite contacts (quick-pick for task assignment)
     Route::post('/favourites/{user}', [FavouriteController::class, 'toggle'])->middleware('throttle:user-search');

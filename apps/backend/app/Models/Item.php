@@ -37,10 +37,12 @@ final class Item extends Model
         'recurrence_rule',
         'recurrence_strategy',
         'recurrence_parent_id',
+        'cognitive_load_score',
     ];
 
     protected $casts = [
         'position' => 'integer',
+        'cognitive_load_score' => 'integer',
         'scheduled_date' => 'date',
         'due_date' => 'date',
         'completed_at' => 'datetime',
@@ -86,6 +88,11 @@ final class Item extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function cognitiveEvents(): HasMany
+    {
+        return $this->hasMany(CognitiveEvent::class);
     }
 
     public function tags(): BelongsToMany
