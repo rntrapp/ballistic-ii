@@ -904,3 +904,4 @@ With the existing master features:
 - Comprehensive test suite for Project model functionality
 - User relationship on Project model
 - Soft deletes support for archiving projects
+
