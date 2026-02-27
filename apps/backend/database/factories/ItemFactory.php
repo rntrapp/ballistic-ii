@@ -27,6 +27,7 @@ final class ItemFactory extends Factory
             'description' => fake()->optional(0.7)->paragraph(),
             'status' => fake()->randomElement(['todo', 'doing', 'done', 'wontdo']),
             'position' => fake()->numberBetween(0, 100),
+            'cognitive_load' => null,
             'scheduled_date' => null,
             'due_date' => null,
             'completed_at' => null,
@@ -111,6 +112,13 @@ final class ItemFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'scheduled_date' => now()->addDays($daysAhead)->toDateString(),
+        ]);
+    }
+
+    public function withCognitiveLoad(int $score): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'cognitive_load' => $score,
         ]);
     }
 }

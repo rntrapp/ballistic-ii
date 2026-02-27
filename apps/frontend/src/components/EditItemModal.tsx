@@ -14,6 +14,7 @@ interface EditItemModalProps {
     title: string;
     description?: string;
     project_id?: string | null;
+    cognitive_load?: number | null;
     scheduled_date?: string | null;
     due_date?: string | null;
     recurrence_rule?: string | null;
@@ -48,6 +49,7 @@ export function EditItemModal({
       title: string;
       description?: string;
       project_id?: string | null;
+      cognitive_load?: number | null;
       scheduled_date?: string | null;
       due_date?: string | null;
       recurrence_rule?: string | null;

@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FavouriteController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\CognitivePhaseController;
 use App\Http\Controllers\ConnectionController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\NotificationController;
@@ -32,6 +33,12 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // User profile
     Route::get('/user', [UserController::class, 'show']);
     Route::patch('/user', [UserController::class, 'update']);
+
+    // Cognitive phase tracking (chronobiology) — v1
+    Route::prefix('v1')->group(function () {
+        Route::get('/user/cognitive-phase', [CognitivePhaseController::class, 'show']);
+        Route::get('/user/cognitive-events', [CognitivePhaseController::class, 'events']);
+    });
 
     // Favourite contacts (quick-pick for task assignment)
     Route::post('/favourites/{user}', [FavouriteController::class, 'toggle'])->middleware('throttle:user-search');

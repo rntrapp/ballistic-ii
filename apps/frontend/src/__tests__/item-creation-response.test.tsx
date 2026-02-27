@@ -162,6 +162,7 @@ describe("Item Creation Response Handling", () => {
           status: "todo",
           project_id: null,
           position: 0,
+          cognitive_load: null,
           scheduled_date: null,
           due_date: null,
           recurrence_rule: null,

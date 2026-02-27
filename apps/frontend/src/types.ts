@@ -9,6 +9,7 @@ export interface User {
   feature_flags?: {
     dates: boolean;
     delegation: boolean;
+    chronobiology: boolean;
   } | null;
   email_verified_at: string | null;
   created_at: string;
@@ -52,6 +53,7 @@ export interface Item {
   assignee_notes: string | null;
   status: Status;
   position: number;
+  cognitive_load: number | null;
   scheduled_date: string | null;
   due_date: string | null;
   completed_at: string | null;
@@ -99,6 +101,37 @@ export interface AuthResponse {
 export interface ValidationError {
   message: string;
   errors: Record<string, string[]>;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cognitive Phase Tracking (chronobiology feature)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CognitivePhase = "peak" | "trough" | "recovery";
+
+/**
+ * Snapshot of the user's current cognitive phase, projected from their
+ * cached ultradian-rhythm profile. When has_profile=false the remaining
+ * fields are absent and message explains why.
+ */
+export interface CognitivePhaseSnapshot {
+  has_profile: boolean;
+  phase?: CognitivePhase;
+  dominant_cycle_minutes?: number;
+  next_peak_at?: string; // ISO-8601
+  confidence?: number; // 0..1
+  amplitude_fraction?: number; // -1..1, where on the wave we sit now
+  sample_count?: number;
+  message?: string; // present when has_profile=false
+}
+
+/**
+ * A single completed-task point for plotting on the wave.
+ */
+export interface CognitiveEventPoint {
+  occurred_at: string; // ISO-8601 with microseconds
+  cognitive_load_score: number; // 1..10
+  item_id: string | null;
 }
 
 export type RecurrencePreset =

@@ -14,6 +14,12 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
+        // Stub Vite so Inertia routes render without built assets.
+        // app.blade.php calls @vite([...]) which throws ViteManifestNotFound
+        // when public/build/manifest.json is absent. Tests assert HTTP status,
+        // not compiled JS — the Laravel-provided no-op Vite handler suffices.
+        $this->withoutVite();
+
         // Disable CSRF middleware for Laravel 12 testing
         $this->withoutMiddleware([
             \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,

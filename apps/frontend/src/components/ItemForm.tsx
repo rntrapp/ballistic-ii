@@ -21,6 +21,7 @@ type Props = {
     title: string;
     description?: string;
     project_id?: string | null;
+    cognitive_load?: number | null;
     scheduled_date?: string | null;
     due_date?: string | null;
     recurrence_rule?: string | null;
@@ -48,11 +49,17 @@ export function ItemForm({
   favourites,
   onFavouriteToggled,
 }: Props) {
-  const { dates, delegation } = useFeatureFlags();
+  const { dates, delegation, chronobiology } = useFeatureFlags();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [projectId, setProjectId] = useState<string | null>(
     initial?.project_id ?? null,
+  );
+  // Cognitive effort slider: defaults to 5 (neutral) for new items, but only
+  // sent to the API when the chronobiology feature is active — otherwise the
+  // field stays null so existing workflows are untouched.
+  const [cognitiveLoad, setCognitiveLoad] = useState<number>(
+    initial?.cognitive_load ?? 5,
   );
   const [scheduledDate, setScheduledDate] = useState<string>(
     initial?.scheduled_date ?? "",
@@ -86,6 +93,7 @@ export function ItemForm({
           title,
           description: description || undefined,
           project_id: projectId,
+          cognitive_load: chronobiology ? cognitiveLoad : null,
           scheduled_date: scheduledDate || null,
           due_date: dueDate || null,
           recurrence_rule: RECURRENCE_PRESET_RULES[recurrencePreset],
@@ -167,6 +175,31 @@ export function ItemForm({
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
+
+            {chronobiology && (
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  Cognitive Effort
+                </label>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500">Light</span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={cognitiveLoad}
+                    onChange={(e) => setCognitiveLoad(Number(e.target.value))}
+                    aria-label="Cognitive effort"
+                    className="flex-1 accent-[var(--blue)]"
+                  />
+                  <span className="text-xs text-slate-500">Heavy</span>
+                  <span className="w-6 text-center text-sm font-medium text-slate-700">
+                    {cognitiveLoad}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {dates && (
               <>

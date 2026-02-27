@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Contracts\ChronobiologyServiceInterface;
 use App\Contracts\NotificationServiceInterface;
+use App\Contracts\PeriodogramInterface;
+use App\Models\Item;
+use App\Observers\ItemObserver;
+use App\Services\ChronobiologyService;
+use App\Services\LombScarglePeriodogram;
 use App\Services\NotificationService;
 use App\Services\WebPushService;
 use App\Services\WebPushServiceInterface;
@@ -22,6 +28,8 @@ final class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(NotificationServiceInterface::class, NotificationService::class);
         $this->app->bind(WebPushServiceInterface::class, WebPushService::class);
+        $this->app->bind(PeriodogramInterface::class, LombScarglePeriodogram::class);
+        $this->app->bind(ChronobiologyServiceInterface::class, ChronobiologyService::class);
     }
 
     /**
@@ -30,6 +38,8 @@ final class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
+
+        Item::observe(ItemObserver::class);
     }
 
     /**
