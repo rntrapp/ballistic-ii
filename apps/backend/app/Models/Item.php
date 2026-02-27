@@ -31,6 +31,7 @@ final class Item extends Model
         'assignee_notes',
         'status',
         'position',
+        'cognitive_load',
         'scheduled_date',
         'due_date',
         'completed_at',
@@ -41,6 +42,7 @@ final class Item extends Model
 
     protected $casts = [
         'position' => 'integer',
+        'cognitive_load' => 'integer',
         'scheduled_date' => 'date',
         'due_date' => 'date',
         'completed_at' => 'datetime',
@@ -91,6 +93,14 @@ final class Item extends Model
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class)->withTimestamps();
+    }
+
+    /**
+     * Get the cognitive events logged against this item.
+     */
+    public function cognitiveEvents(): HasMany
+    {
+        return $this->hasMany(CognitiveEvent::class);
     }
 
     /**

@@ -161,6 +161,24 @@ final class ItemTest extends TestCase
         ]);
     }
 
+    /**
+     * Resource-shape guard: the Item model uses SoftDeletes and the frontend
+     * Item type declares deleted_at: string | null, so the resource must emit
+     * the key. Currently no endpoint serves trashed items, but the key must
+     * be present (null for live rows) to satisfy the API contract.
+     */
+    public function test_item_resource_includes_deleted_at_key(): void
+    {
+        $user = User::factory()->create();
+        $item = Item::factory()->todo()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)->getJson("/api/items/{$item->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['data' => ['deleted_at']])
+            ->assertJsonPath('data.deleted_at', null);
+    }
+
     public function test_user_cannot_access_other_users_item(): void
     {
         $user = User::factory()->create();

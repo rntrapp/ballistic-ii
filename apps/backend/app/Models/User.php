@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -210,5 +211,21 @@ final class User extends Authenticatable
     {
         return $this->belongsToMany(User::class, 'user_favourites', 'user_id', 'favourite_id')
             ->orderByPivot('created_at', 'desc');
+    }
+
+    /**
+     * Get this user's cognitive events (task-state transitions used for rhythm analysis).
+     */
+    public function cognitiveEvents(): HasMany
+    {
+        return $this->hasMany(CognitiveEvent::class);
+    }
+
+    /**
+     * Get this user's cached cognitive profile (spectral analysis result).
+     */
+    public function cognitiveProfile(): HasOne
+    {
+        return $this->hasOne(CognitiveProfile::class);
     }
 }

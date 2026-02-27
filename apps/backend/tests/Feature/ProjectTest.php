@@ -79,4 +79,21 @@ class ProjectTest extends TestCase
         $this->assertInstanceOf(User::class, $project->user);
         $this->assertNotNull($project->id);
     }
+
+    /**
+     * Resource-shape guard: the Project model uses SoftDeletes and the
+     * frontend Project type declares deleted_at: string | null, so the
+     * resource must emit the key (null for live rows).
+     */
+    public function test_project_resource_includes_deleted_at_key(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)->getJson("/api/projects/{$project->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['data' => ['deleted_at']])
+            ->assertJsonPath('data.deleted_at', null);
+    }
 }

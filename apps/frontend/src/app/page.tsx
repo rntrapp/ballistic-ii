@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { useCognitivePhase } from "@/hooks/useCognitivePhase";
 import { useRouter } from "next/navigation";
 import type { Item, ItemScope, Project } from "@/types";
 import {
@@ -12,12 +13,17 @@ import {
   fetchProjects,
   createProject,
 } from "@/lib/api";
+import {
+  minutesUntilDeepWork,
+  sortByCognitivePhase,
+} from "@/lib/cognitiveSort";
 import { ItemRow } from "@/components/ItemRow";
 import { EmptyState } from "@/components/EmptyState";
 import { SplashScreen } from "@/components/SplashScreen";
 import { SettingsModal } from "@/components/SettingsModal";
 import { NotesModal } from "@/components/NotesModal";
 import { EditItemModal } from "@/components/EditItemModal";
+import { CognitiveWave } from "@/components/CognitiveWave";
 import { useAuth } from "@/contexts/AuthContext";
 
 function normaliseItemResponse(payload: Item | { data?: Item }): Item {
@@ -96,7 +102,22 @@ export default function Home() {
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
-  const { dates, delegation } = useFeatureFlags();
+  const { dates, delegation, chronobiology } = useFeatureFlags();
+
+  // Cognitive phase tracking — snapshot + event dots for the wave.
+  // Entirely gated on the feature flag (no network when disabled).
+  const {
+    snapshot: phaseSnapshot,
+    events: phaseEvents,
+    addOptimisticEvent,
+  } = useCognitivePhase(chronobiology);
+
+  // Deep Work banner — delegates to a pure helper so the spec's
+  // 2:00→2:15 scenario is directly unit-testable.
+  const minutesUntilPeak = useMemo(
+    () => (chronobiology ? minutesUntilDeepWork(phaseSnapshot) : null),
+    [chronobiology, phaseSnapshot],
+  );
 
   const showError = useCallback((message: string) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -232,10 +253,18 @@ export default function Home() {
   // Sort my tasks by urgency (only when dates feature is enabled)
   const sortedItems = dates ? sortByUrgency(items) : items;
 
+  // Phase-aware re-bubble: during a peak heavy tasks float up, during a
+  // trough light tasks float up, recovery leaves urgency order intact.
+  // The sort is stable so within a cognitive-load tier urgency order holds.
+  const phaseSortedItems =
+    chronobiology && phaseSnapshot?.has_profile
+      ? sortByCognitivePhase(sortedItems, phaseSnapshot.phase)
+      : sortedItems;
+
   // Apply project filter client-side
   const filteredItems = filterProjectId
-    ? sortedItems.filter((i) => i.project_id === filterProjectId)
-    : sortedItems;
+    ? phaseSortedItems.filter((i) => i.project_id === filterProjectId)
+    : phaseSortedItems;
   const filteredAssignedItems = filterProjectId
     ? assignedItems.filter((i) => i.project_id === filterProjectId)
     : assignedItems;
@@ -244,6 +273,29 @@ export default function Home() {
     : delegatedItems;
 
   function onRowChange(itemOrUpdater: Item | ((current: Item) => Item)) {
+    // Detect the moment a task is marked done so we can plot an optimistic
+    // dot on the cognitive wave immediately — before the server round-trip
+    // and long before the 5-min snapshot refresh. Only fires on the object
+    // form (the function form is used for post-fetch reconciliation, not
+    // user-initiated status changes).
+    if (
+      chronobiology &&
+      typeof itemOrUpdater !== "function" &&
+      itemOrUpdater.status === "done"
+    ) {
+      const prev =
+        items.find((i) => i.id === itemOrUpdater.id) ??
+        assignedItems.find((i) => i.id === itemOrUpdater.id) ??
+        delegatedItems.find((i) => i.id === itemOrUpdater.id);
+      if (prev && prev.status !== "done") {
+        addOptimisticEvent({
+          occurred_at: new Date().toISOString(),
+          cognitive_load_score: itemOrUpdater.cognitive_load ?? 5,
+          item_id: itemOrUpdater.id,
+        });
+      }
+    }
+
     const updater = (prev: Item[]) => {
       if (!Array.isArray(prev)) return [];
       if (typeof itemOrUpdater === "function") {
@@ -483,6 +535,22 @@ export default function Home() {
           </button>
         </div>
       </header>
+
+      {/* Cognitive rhythm wave — live visualisation of today's ultradian cycle */}
+      {chronobiology && (
+        <div className="rounded-lg bg-white shadow-sm border border-slate-200/50 overflow-hidden">
+          <CognitiveWave snapshot={phaseSnapshot} events={phaseEvents} />
+        </div>
+      )}
+
+      {/* Deep Work Window approaching */}
+      {minutesUntilPeak !== null && (
+        <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
+          Deep Work Window opening in {minutesUntilPeak}{" "}
+          {minutesUntilPeak === 1 ? "minute" : "minutes"} — queue up a heavy
+          task
+        </div>
+      )}
 
       {/* Planned view banner */}
       {dates && viewScope === "planned" && (
@@ -817,6 +885,7 @@ export default function Home() {
                   : editingItem.assignee_notes,
               project_id: v.project_id ?? null,
               project: selectedProject ?? null,
+              cognitive_load: v.cognitive_load ?? editingItem.cognitive_load,
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               recurrence_rule: v.recurrence_rule ?? null,
@@ -838,6 +907,7 @@ export default function Home() {
               description: v.description || null,
               assignee_notes: v.assignee_notes,
               project_id: v.project_id,
+              cognitive_load: v.cognitive_load,
               scheduled_date: v.scheduled_date,
               due_date: v.due_date,
               recurrence_rule: v.recurrence_rule,
@@ -868,6 +938,7 @@ export default function Home() {
               description: v.description || null,
               status: "todo",
               position: items.length,
+              cognitive_load: v.cognitive_load ?? null,
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               completed_at: null,
@@ -909,6 +980,7 @@ export default function Home() {
               status: "todo",
               project_id: v.project_id,
               position: items.length,
+              cognitive_load: v.cognitive_load,
               scheduled_date: v.scheduled_date,
               due_date: v.due_date,
               recurrence_rule: v.recurrence_rule,

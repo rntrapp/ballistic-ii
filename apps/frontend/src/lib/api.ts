@@ -6,6 +6,8 @@ import type {
   User,
   UserLookup,
   NotificationsResponse,
+  CognitivePhaseSnapshot,
+  CognitiveEventPoint,
 } from "@/types";
 import { getAuthHeaders, clearToken } from "./auth";
 
@@ -174,6 +176,7 @@ export async function createItem(payload: {
   status: Status;
   project_id?: string | null;
   position?: number;
+  cognitive_load?: number | null;
   scheduled_date?: string | null;
   due_date?: string | null;
   recurrence_rule?: string | null;
@@ -189,6 +192,7 @@ export async function createItem(payload: {
       status: payload.status,
       project_id: payload.project_id || null,
       position: payload.position ?? 0,
+      cognitive_load: payload.cognitive_load ?? null,
       scheduled_date: payload.scheduled_date || null,
       due_date: payload.due_date || null,
       recurrence_rule: payload.recurrence_rule || null,
@@ -232,6 +236,7 @@ export async function updateItem(
       | "assignee_notes"
       | "project_id"
       | "position"
+      | "cognitive_load"
       | "scheduled_date"
       | "due_date"
       | "recurrence_rule"
@@ -543,6 +548,49 @@ export async function deletePushSubscription(
   );
 
   return handleResponse<{ message: string }>(response);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cognitive Phase Tracking (chronobiology)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch the current user's live cognitive-phase snapshot.
+ *
+ * Reads the cached ultradian-rhythm profile on the server and projects
+ * the current phase angle, next peak ETA, and confidence. Returns
+ * has_profile=false with a message when insufficient data exists.
+ */
+export async function fetchCognitivePhase(): Promise<CognitivePhaseSnapshot> {
+  const response = await fetch(buildUrl("/api/v1/user/cognitive-phase"), {
+    method: "GET",
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+
+  const payload = await handleResponse<
+    CognitivePhaseSnapshot | { data?: CognitivePhaseSnapshot }
+  >(response);
+  return extractData(payload);
+}
+
+/**
+ * Fetch today's completed-task event points for plotting on the
+ * cognitive wave. Each point has a microsecond-precision timestamp
+ * and the cognitive load score recorded at completion time.
+ */
+export async function fetchCognitiveEvents(): Promise<CognitiveEventPoint[]> {
+  const response = await fetch(buildUrl("/api/v1/user/cognitive-events"), {
+    method: "GET",
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+
+  const payload = await handleResponse<
+    CognitiveEventPoint[] | { data?: CognitiveEventPoint[] }
+  >(response);
+  const events = extractData(payload);
+  return Array.isArray(events) ? events : [];
 }
 
 /**

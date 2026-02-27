@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-02-27
+
+### Added
+
+#### Cognitive Phase Tracker
+
+- **Lomb-Scargle periodogram** (`App\Services\LombScarglePeriodogram`): Pure-PHP spectral analysis for irregularly-sampled time series. Scans 60–180 minute trial periods, returns dominant period, normalised power (0–1), fitted phase and amplitude. Handles N=5000 in under 400ms (no extensions, plain arrays).
+- **`cognitive_events` table**: Microsecond-precision (`timestamp(6)`) event log capturing `started`/`completed` transitions with `cognitive_load_score` (1–10). Indexed on `(user_id, occurred_at)` for 14-day range scans.
+- **`cognitive_profiles` table**: Cached spectral result per user — `dominant_period_seconds`, `phase_anchor_at` (a known peak moment), `amplitude`, `confidence`, `sample_count`. Avoids re-running the O(N·M) periodogram on every phase lookup.
+- **`cognitive_load` column on `items`**: Nullable `unsignedTinyInteger` (1–10) for user-rated task effort. Validated in `StoreItemRequest`/`UpdateItemRequest`, surfaced in `ItemResource`.
+- **`ChronobiologyService`** (`App\Services`): Orchestrates the pipeline — fetches 14-day completed events, runs periodogram, persists profile, projects current phase angle from cached parameters. Recomputes when profile is >24h stale.
+- **`CognitivePhase` enum**: `Peak` / `Trough` / `Recovery` derived from phase angle on the cosine wave (top third → Peak, bottom third → Trough, transitions → Recovery).
+- **`ItemObserver`**: Transparently logs cognitive events on `status` transitions. `todo→doing` logs `Started`, `*→done` logs `Completed` and dispatches `RecalibrateCognitivePhaseJob`. Standard CRUD (title/description/position edits) is entirely unaffected — observer only reacts to `isDirty('status')`.
+- **`RecalibrateCognitivePhaseJob`**: Queued, debounced via `ShouldBeUnique` (one per user per 5 minutes). Runs `ChronobiologyService::computeProfile()` in the background after task completions.
+- **`GET /api/v1/user/cognitive-phase`**: Returns current phase snapshot (`phase`, `dominant_cycle_minutes`, `next_peak_at`, `confidence`, `amplitude_fraction`, `sample_count`) or `has_profile: false` with guidance message when <10 events exist.
+- **`GET /api/v1/user/cognitive-events`**: Returns today's completed-event points (`occurred_at` with microseconds, `cognitive_load_score`, `item_id`) for plotting on the dashboard wave.
+- **API versioning**: Cognitive-phase endpoints are the first `v1`-prefixed routes in the codebase; unversioned paths are not registered.
+- **Interfaces**: `PeriodogramInterface` and `ChronobiologyServiceInterface` bound in `AppServiceProvider` — enables mocking in unit tests and future algorithm swaps.
+- **Factories**: `CognitiveEventFactory`, `CognitiveProfileFactory`, plus `ItemFactory::withCognitiveLoad()` state.
+
+### Fixed
+
+- **`deleted_at` missing from `ItemResource` and `ProjectResource`**: Both `Item` and `Project` models use `SoftDeletes`, and the frontend TypeScript `Item` / `Project` interfaces declare `deleted_at: string | null`, but neither API resource ever emitted the key. The gap was inert (no `withTrashed()` endpoint exists) but broke the API↔client contract. Both resources now emit `deleted_at` as ISO-8601 (null for live rows). Resource-shape tests added to `ItemTest` and `ProjectTest`.
+- **16 Inertia feature tests failing with `Vite manifest not found`**: `app.blade.php` calls `@vite([...])`, which throws `ViteManifestNotFoundException` when `public/build/manifest.json` is absent — which it always is in the test container (backend Vite assets are not built). All affected tests (`AdminDashboardTest`, `DashboardTest`, `Auth\*`, `Settings\*`) assert HTTP status, not compiled JS. Fixed by calling Laravel's `$this->withoutVite()` in `TestCase::setUp()`, which swaps the Vite binding for a no-op handler. Full suite now passes clean (354 tests, 0 failures).
+
+### Testing
+
+- 7 new test classes, 79 new test cases covering: periodogram correctness with synthetic 100-minute sine data (±5% detection), performance bound, phase-angle enum classification (table-driven across 0–2π), observer transparency (proves title/description updates do *not* log events), job uniqueness, API auth and data isolation, `cognitive_load` validation bounds, a producer↔enum parity guard that fails if a `CognitiveEventType` case is ever added without a corresponding `ItemObserver` status transition, and resource-shape guards asserting `deleted_at` is present in `ItemResource` / `ProjectResource` output.
+
 ## [0.15.0] - 2026-02-08
 
 ### Added

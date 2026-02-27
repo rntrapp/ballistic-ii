@@ -1,3 +1,28 @@
+## 0.16.0 - 2026-02-27
+
+### Added
+
+#### Cognitive Phase Tracker
+
+- **`CognitiveWave` component**: Canvas-based sinusoidal visualisation of today's cognitive rhythm. Renders the predicted wave (gradient sky→indigo stroke) with shaded Peak bands (emerald) and Trough bands (amber), plots completed tasks as dots sized by cognitive load. Uses an offscreen canvas for the static scene and a `requestAnimationFrame` loop that only blits + overdraws the "now" marker — sub-millisecond per frame, no layout shift.
+- **`useCognitivePhase` hook**: Fetches phase snapshot + today's events when the `chronobiology` flag is on; refreshes every 5 minutes. Exposes `addOptimisticEvent()` so a completion dot appears on the wave the instant a task is marked done, before the backend job finishes recalibrating.
+- **`sortByCognitivePhase()`** (`src/lib/cognitiveSort.ts`): Stable sort that bubbles high-effort tasks to the top during **Peak** and low-effort tasks during **Trough**; no-op in **Recovery**. Treats `cognitive_load: null` as 5 (neutral). Composes with the existing urgency sort — within equal-load tiers, urgency order is preserved.
+- **Cognitive effort slider** in `ItemForm`: 1–10 range input inside "More settings", shown only when `chronobiology` is enabled. Value included in create/update payloads.
+- **Deep Work banner**: When `next_peak_at` is ≤15 minutes away, shows an emerald callout: "Deep Work Window opening in X minutes — queue up a heavy task". Not gated on current phase classification — `next_peak_at` naturally handles the "already at apex" case (it jumps forward a full period). Trigger logic extracted into `minutesUntilDeepWork()` for direct unit testing of the 2:00→2:15 PM spec scenario.
+- **`chronobiology` feature flag**: Third toggle in Settings ("Cognitive Rhythm Tracking"), defaults off. When disabled, no phase API calls are made and all rhythm UI is hidden.
+- **API client**: `fetchCognitivePhase()`, `fetchCognitiveEvents()` (both target `/api/v1/…` — first versioned endpoints); `createItem`/`updateItem` now carry `cognitive_load`.
+- **Types**: `CognitivePhase`, `CognitivePhaseSnapshot`, `CognitiveEventPoint`; `Item.cognitive_load`; `feature_flags.chronobiology`.
+
+### Changed
+
+- **Sort pipeline** in `page.tsx`: urgency sort → phase sort → project filter. Phase sort only applies when the flag is on _and_ a profile exists.
+- **`onRowChange`**: Detects `status → "done"` transitions and fires `addOptimisticEvent` with the item's `cognitive_load` (or 5) for instant wave plotting.
+
+### Testing
+
+- `cognitive-phase.test.tsx`: 7 sort tests (Peak/Trough/Recovery ordering, null-as-5, stability, non-mutation) + 3 wave render tests (canvas present, no-profile message, null-snapshot fallback).
+- All existing test fixtures updated with `cognitive_load: null`.
+
 ## 0.15.0 - 2026-02-08
 
 ### Added
