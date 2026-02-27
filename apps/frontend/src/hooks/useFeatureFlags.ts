@@ -6,9 +6,14 @@ import { AuthContext } from "@/contexts/AuthContext";
 interface FeatureFlags {
   dates: boolean;
   delegation: boolean;
+  cognitivePhase: boolean;
 }
 
-const DEFAULTS: FeatureFlags = { dates: false, delegation: false };
+const DEFAULTS: FeatureFlags = {
+  dates: false,
+  delegation: false,
+  cognitivePhase: false,
+};
 
 export function useFeatureFlags() {
   // Use useContext directly instead of useAuth to avoid throwing in tests
@@ -27,12 +32,21 @@ export function useFeatureFlags() {
     return {
       dates: user.feature_flags.dates ?? false,
       delegation: user.feature_flags.delegation ?? false,
+      cognitivePhase: user.feature_flags.cognitive_phase ?? false,
     };
   }, [user?.feature_flags]);
 
   const setFlag = useCallback(
-    async (flag: "dates" | "delegation", value: boolean) => {
-      const next = { ...flags, [flag]: value };
+    async (
+      flag: "dates" | "delegation" | "cognitive_phase",
+      value: boolean,
+    ) => {
+      const next = {
+        dates: flags.dates,
+        delegation: flags.delegation,
+        cognitive_phase: flags.cognitivePhase,
+        [flag]: value,
+      };
 
       try {
         await updateUser({ feature_flags: next });
@@ -47,6 +61,7 @@ export function useFeatureFlags() {
   return {
     dates: flags.dates,
     delegation: flags.delegation,
+    cognitivePhase: flags.cognitivePhase,
     setFlag,
     loaded: user !== null,
   };

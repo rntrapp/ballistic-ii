@@ -38,6 +38,7 @@ final class UpdateItemRequest extends FormRequest
                 }),
             ],
             'position' => ['sometimes', 'integer', 'min:0'],
+            'cognitive_load_score' => ['nullable', 'integer', 'min:1', 'max:10'],
             'scheduled_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:scheduled_date'],
             'recurrence_rule' => ['nullable', 'string', 'max:255'],

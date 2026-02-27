@@ -14,7 +14,7 @@ interface SettingsModalProps {
  */
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
-  const { dates, delegation, setFlag } = useFeatureFlags();
+  const { dates, delegation, cognitivePhase, setFlag } = useFeatureFlags();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +39,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   }
 
-  async function handleToggle(flag: "dates" | "delegation", value: boolean) {
+  async function handleToggle(
+    flag: "dates" | "delegation" | "cognitive_phase",
+    value: boolean,
+  ) {
     if (saving) return;
 
     setSaving(true);
@@ -185,6 +188,43 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </span>
                 </div>
               </div>
+
+              {/* Cognitive Phase Tracker toggle */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleToggle("cognitive_phase", !cognitivePhase)
+                  }
+                  disabled={saving}
+                  className={`
+                    relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full
+                    border-2 border-transparent transition-colors duration-200 ease-in-out
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                    ${cognitivePhase ? "bg-blue-600" : "bg-gray-200"}
+                    ${saving ? "opacity-50 cursor-not-allowed" : ""}
+                  `}
+                  role="switch"
+                  aria-checked={cognitivePhase}
+                  aria-label="Cognitive Phase Tracker"
+                >
+                  <span
+                    className={`
+                      pointer-events-none inline-block h-5 w-5 transform rounded-full
+                      bg-white shadow ring-0 transition duration-200 ease-in-out
+                      ${cognitivePhase ? "translate-x-5" : "translate-x-0"}
+                    `}
+                  />
+                </button>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900">
+                    Cognitive Phase Tracker
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    Analyses your productivity rhythm and reorders tasks
+                  </span>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -201,7 +241,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {/* Version Info */}
           <section className="pt-4 border-t border-gray-100">
             <p className="text-xs text-gray-400 text-center">
-              Ballistic v0.15.0
+              Ballistic v0.16.0
             </p>
           </section>
         </div>

@@ -113,4 +113,11 @@ final class ItemFactory extends Factory
             'scheduled_date' => now()->addDays($daysAhead)->toDateString(),
         ]);
     }
+
+    public function withCognitiveLoad(int $score): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'cognitive_load_score' => $score,
+        ]);
+    }
 }
