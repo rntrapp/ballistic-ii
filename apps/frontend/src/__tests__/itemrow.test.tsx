@@ -38,6 +38,7 @@ describe("ItemRow", () => {
     description: null,
     status: "todo",
     position: 0,
+    effort_score: 1,
     scheduled_date: null,
     due_date: null,
     completed_at: null,

@@ -1,3 +1,29 @@
+## 0.16.0 - 2026-03-05
+
+### Added
+
+#### Capacity Dashboard & Effort Scoring
+
+- **`CapacityDashboard` component**: Compact panel at the top of the home page (gated behind the `dates` feature flag) surfacing the velocity forecast — EMA throughput, upcoming-7-day effort load, success probability, a load-vs-capacity bar, and a weekly-throughput sparkline. Panel turns red and shows a "Burnout risk" alert badge when upcoming effort exceeds the upper-bound capacity.
+- **`useVelocityForecast` hook**: Reactive delta-overlay forecast. Fetches `/api/velocity/forecast` for the historical half (EMA, σ, weekly series — requires 12 weeks of data the client doesn't hold), then re-derives the upcoming half (`upcoming_effort`, `burnout_risk`, `probability_of_success`) client-side via `useMemo` on every `items` change. An effort 1→8 edit shifts the dashboard on the **same render** as the optimistic `setItems` — zero server round-trips. The delta is `clientSum(items) − baselineSnapshot`, where the baseline is captured when the server forecast resolves, so items outside the current view scope still contribute via the server's authoritative `upcoming_effort` floor.
+- **`lib/forecast.ts`**: `sumUpcomingEffort()` (mirrors backend's 7-day-window filter), `normalCdf()` (same A&S 26.2.17 approximation as PHP), and `composeLiveForecast()` (re-derives the mutable forecast fields from a new upcoming value + server EMA/σ).
+- **Effort picker in `ItemForm`**: Fibonacci radio group `{1, 2, 3, 5, 8}` with inline labels (Trivial → Extra Large). Lives inside the `dates`-gated section alongside scheduled/due date inputs.
+- **`EffortScore` type + `EFFORT_SCORES` / `EFFORT_LABELS` constants**: Mirror the backend `App\Enums\EffortScore` so the picker and the `Item` interface share a single source of truth.
+- **`VelocityForecast` interface**: Typed shape for the forecast endpoint response.
+- **`fetchVelocityForecast()`** in `lib/api.ts`.
+
+### Fixed
+
+- **Settings pane overflow**: The bottom-sheet settings modal now caps at `85vh` with an internally scrollable body. Header stays pinned; content scrolls independently when sections overflow the viewport. `min-h-0` on the scroll container lets the flex child shrink below its intrinsic content height so `overflow-y-auto` actually engages.
+
+### Changed
+
+- **Forecast refetch scope narrowed**: `refreshForecast()` is now only called for status→`done` (which shifts historical EMA — server-only) and tab-regain-focus. Effort edits, due-date edits, and creates are handled purely by the delta overlay with no network. Status toggles use an `onPersisted` callback on `ItemRow` that fires in the `.then()` of `updateStatus`, so the velocity refetch sees the post-persist DB state.
+- **`Item` interface**: `effort_score: EffortScore` is now a required field.
+- **`createItem` / `updateItem`**: Accept and forward `effort_score`.
+- **Optimistic item state**: New items default to `effort_score: 1`; edits carry the picker's value into the optimistic merge.
+- **Visibility-change handler**: Now also refreshes the forecast when the tab regains focus.
+
 ## 0.15.0 - 2026-02-08
 
 ### Added

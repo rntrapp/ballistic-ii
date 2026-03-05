@@ -17,6 +17,7 @@ describe("Move to Top functionality", () => {
     description: null,
     status: "todo",
     position: 1,
+    effort_score: 1,
     scheduled_date: null,
     due_date: null,
     completed_at: null,
@@ -155,6 +156,7 @@ describe("Move to Top optimistic update", () => {
       assignee_notes: null,
       is_assigned: false,
       is_delegated: false,
+      effort_score: 1 as const,
       deleted_at: null,
     };
 
@@ -247,6 +249,7 @@ describe("Move to Top optimistic update", () => {
       assignee_notes: null,
       is_assigned: false,
       is_delegated: false,
+      effort_score: 1 as const,
       deleted_at: null,
     };
 

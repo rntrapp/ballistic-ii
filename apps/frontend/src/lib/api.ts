@@ -1,4 +1,5 @@
 import type {
+  EffortScore,
   Item,
   ItemScope,
   Project,
@@ -6,6 +7,7 @@ import type {
   User,
   UserLookup,
   NotificationsResponse,
+  VelocityForecast,
 } from "@/types";
 import { getAuthHeaders, clearToken } from "./auth";
 
@@ -151,6 +153,25 @@ export async function fetchItems(params?: ListParams): Promise<Item[]> {
   return Array.isArray(items) ? items : [];
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Velocity forecasting
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch the authenticated user's velocity forecast: EMA of past weekly
+ * throughput, upcoming required effort, probability of success, and
+ * burnout-risk flag.
+ */
+export async function fetchVelocityForecast(): Promise<VelocityForecast> {
+  const response = await fetch(buildUrl("/api/velocity/forecast"), {
+    method: "GET",
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+
+  return handleResponse<VelocityForecast>(response);
+}
+
 /**
  * Update an item's status
  */
@@ -174,6 +195,7 @@ export async function createItem(payload: {
   status: Status;
   project_id?: string | null;
   position?: number;
+  effort_score?: EffortScore;
   scheduled_date?: string | null;
   due_date?: string | null;
   recurrence_rule?: string | null;
@@ -189,6 +211,7 @@ export async function createItem(payload: {
       status: payload.status,
       project_id: payload.project_id || null,
       position: payload.position ?? 0,
+      effort_score: payload.effort_score,
       scheduled_date: payload.scheduled_date || null,
       due_date: payload.due_date || null,
       recurrence_rule: payload.recurrence_rule || null,
@@ -232,6 +255,7 @@ export async function updateItem(
       | "assignee_notes"
       | "project_id"
       | "position"
+      | "effort_score"
       | "scheduled_date"
       | "due_date"
       | "recurrence_rule"

@@ -65,7 +65,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     >
       <div
         ref={modalRef}
-        className="w-full max-w-md rounded-t-2xl bg-white p-6 shadow-xl animate-slide-in-up"
+        className="flex max-h-[85vh] w-full max-w-md flex-col rounded-t-2xl bg-white p-6 shadow-xl animate-slide-in-up"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -108,8 +108,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </div>
         )}
 
-        {/* Settings Content */}
-        <div className="space-y-6">
+        {/* Settings Content — min-h-0 lets this flex child shrink below
+            its content height so overflow-y-auto can actually engage. */}
+        <div className="min-h-0 space-y-6 overflow-y-auto">
           {/* Features Section */}
           <section>
             <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
