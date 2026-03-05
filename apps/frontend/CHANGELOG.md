@@ -12,6 +12,10 @@
 - **`VelocityForecast` interface**: Typed shape for the forecast endpoint response.
 - **`fetchVelocityForecast()`** in `lib/api.ts`.
 
+### Fixed
+
+- **Settings pane overflow**: The bottom-sheet settings modal now caps at `85vh` with an internally scrollable body. Header stays pinned; content scrolls independently when sections overflow the viewport. `min-h-0` on the scroll container lets the flex child shrink below its intrinsic content height so `overflow-y-auto` actually engages.
+
 ### Changed
 
 - **Forecast refetch scope narrowed**: `refreshForecast()` is now only called for status→`done` (which shifts historical EMA — server-only) and tab-regain-focus. Effort edits, due-date edits, and creates are handled purely by the delta overlay with no network. Status toggles use an `onPersisted` callback on `ItemRow` that fires in the `.then()` of `updateStatus`, so the velocity refetch sees the post-persist DB state.
