@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { Item, Project, UserLookup } from "@/types";
+import type { EffortScore, Item, Project, UserLookup } from "@/types";
 import { ItemForm } from "./ItemForm";
 
 interface EditItemModalProps {
@@ -14,6 +14,7 @@ interface EditItemModalProps {
     title: string;
     description?: string;
     project_id?: string | null;
+    effort_score: EffortScore;
     scheduled_date?: string | null;
     due_date?: string | null;
     recurrence_rule?: string | null;
@@ -43,18 +44,10 @@ export function EditItemModal({
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Handle submission - call onSubmit then close
-  const handleSubmit = useCallback(
-    (values: {
-      title: string;
-      description?: string;
-      project_id?: string | null;
-      scheduled_date?: string | null;
-      due_date?: string | null;
-      recurrence_rule?: string | null;
-      recurrence_strategy?: string | null;
-      assignee_id?: string | null;
-      assignee_notes?: string | null;
-    }) => {
+  const handleSubmit = useCallback<
+    React.ComponentProps<typeof ItemForm>["onSubmit"]
+  >(
+    (values) => {
       onSubmit(values);
       onClose();
     },

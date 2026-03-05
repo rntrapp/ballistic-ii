@@ -1,3 +1,34 @@
+## 0.16.0 - 2026-03-05
+
+### Added
+
+#### Velocity Forecasting & Burnout Detection
+
+- **Effort-score picker**: Fibonacci-scaled radio-group (1/2/3/5/8) at the top of "More settings" in `ItemForm`. One-tap selection with tooltip labels (Trivial → Epic). Defaults to 1.
+- **`CapacityDashboard` component**: Native CSS bar chart visualising the last 8 weeks of completed effort against a dashed EMA capacity line, plus an amber/red "Next 7d" upcoming-effort bar. Stat cards for Velocity (pts/week), Upcoming (red accent when burnout), and Success %. `role="alert"` burnout banner shown when `upcoming_effort > weekly_velocity_ema`. Gated behind the `dates` feature flag.
+- **`lib/velocity.ts`**: Client-side mirror of the backend EMA/probability/burnout math. Enables the dashboard to re-derive `upcoming_effort`, `success_probability`, and `burnout_risk` from the in-memory item array the instant an optimistic mutation lands — no network wait. **All arithmetic is native `BigInt` fixed-point at 12 dp (matching BCMath's `BCSCALE`) — no IEEE-754 floats, no epsilon, no drift.** Public functions accept/return decimal strings so the server's EMA flows through without ever touching `Number`. `bcmul`/`bcdiv` semantics (truncate toward zero) and the backend's half-up `round()` are reproduced exactly; parity-verified against the backend's BCMath test vectors (`[10,12,8,15] @ α=0.2 → "10.936000000000"`, `[4,6,2] @ α=0.5 → "3.500000000000"`). Zero dependency footprint — `BigInt` is an ECMAScript built-in.
+  - `exponentialMovingAverage(series, alpha): string` — `EMA_0 = X_0` seeding, BigInt recurrence, returns 4-dp string
+  - `calculateSuccessProbability(capacity: string, upcoming: number): string` — linear-decay `p = max(0, 2 − load)` via `fxDiv`; server EMA string is parsed straight to fixed-point
+  - `isBurnoutRisk(capacity: string, upcoming: number): boolean` — exact BigInt `fxCmp`, no epsilon
+  - `sumUpcomingEffort()` — pure-integer sum over half-open `due_date ∈ [today, today+7d)` (exactly 7 calendar days) excluding `done`/`wontdo`
+  - `aggregateWeeklyEffort()` — ISO-week integer bucketing with zero-fill, for local-only fallback
+  - `deriveForecast()` — full local-only forecast; all BigInt internally, 4-dp strings at the edge
+- **`fetchVelocity()` API function**: `GET /api/velocity` with optional `alpha` override. Unwraps `{ data }` envelopes.
+- **Optimistic burnout re-derivation** (`page.tsx`): A `displayedForecast` `useMemo` keyed on `items`/`assignedItems`/`delegatedItems` re-computes `upcoming_effort`/`success_probability`/`burnout_risk` against the server's authoritative EMA on every local state change. The server's `weekly_velocity_ema` **stays a decimal string end-to-end** — passed straight to `calculateSuccessProbability` / `isBurnoutRisk` where it is parsed to BigInt fixed-point, never to a float. Changing an item's effort from 1→8 shifts the dashboard immediately, before the `updateItem` request resolves. Server truth reconciles via `refreshVelocity()` on settle.
+- **`EFFORT_SCORES`, `EffortScore`, `DEFAULT_EFFORT_SCORE`, `EFFORT_SCORE_LABELS`, `VelocityForecast` types** (`types.ts`).
+
+### Changed
+
+- **`Item` type**: `effort_score: EffortScore` is now a required field.
+- **`createItem` / `updateItem`**: Accept and transmit `effort_score`.
+- **`ItemForm` / `EditItemModal`**: `onSubmit` callback signatures include `effort_score: EffortScore`. `EditItemModal` now infers its `handleSubmit` signature from `ItemForm` props via `React.ComponentProps` (DRY).
+- **`page.tsx`**: Both create and update optimistic paths include `effort_score` on the optimistic item; both call `refreshVelocity()` after the server confirms.
+
+### Fixed
+
+- **7-day horizon off-by-one** (`lib/velocity.ts`): `sumUpcomingEffort()` used `due_date > horizonStr` as the exclusion check, keeping today+7 in the window (8 days total). Fixed to `due_date >= horizonStr` so the window is half-open `[today, today+7)` — exactly 7 calendar days (today through today+6 inclusive). Mirrors the backend `VelocityForecastingService` fix.
+- **`SplashScreen` styled-jsx in jsdom**: Moved the inline `<style jsx>` keyframes/animation classes into `globals.css` (matching the project's existing pattern for `animate-scale-in`, `animate-bounce-in`, etc.). Eliminates the React dev-mode "unknown `jsx` prop on `<style>`" warning under `ts-jest`, where the Next.js styled-jsx transform isn't applied. `/` bundle shrank from 18.1 kB → 15.2 kB as a side-effect.
+
 ## 0.15.0 - 2026-02-08
 
 ### Added

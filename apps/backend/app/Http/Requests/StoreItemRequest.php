@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Enums\EffortScore;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -37,6 +38,7 @@ final class StoreItemRequest extends FormRequest
                 }),
             ],
             'position' => ['integer', 'min:0'],
+            'effort_score' => ['nullable', 'integer', Rule::in(EffortScore::values())],
             'scheduled_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:scheduled_date'],
             'recurrence_rule' => ['nullable', 'string', 'max:255'],
@@ -67,6 +69,7 @@ final class StoreItemRequest extends FormRequest
             'project_id.exists' => 'The selected project does not exist or does not belong to you.',
             'tag_ids.*.exists' => 'One or more selected tags do not exist or do not belong to you.',
             'due_date.after_or_equal' => 'The due date must not be before the scheduled date.',
+            'effort_score.in' => 'The effort score must be one of: '.implode(', ', EffortScore::values()).'.',
             'assignee_id.exists' => 'The selected user does not exist.',
         ];
     }

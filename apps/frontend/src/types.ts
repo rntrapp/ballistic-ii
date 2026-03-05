@@ -1,5 +1,21 @@
 export type Status = "todo" | "doing" | "done" | "wontdo";
 
+/**
+ * Fibonacci-scale effort scoring.
+ * Mirrors App\Enums\EffortScore on the backend — keep the two in lockstep.
+ */
+export const EFFORT_SCORES = [1, 2, 3, 5, 8] as const;
+export type EffortScore = (typeof EFFORT_SCORES)[number];
+export const DEFAULT_EFFORT_SCORE: EffortScore = 1;
+
+export const EFFORT_SCORE_LABELS: Record<EffortScore, string> = {
+  1: "Trivial",
+  2: "Minor",
+  3: "Moderate",
+  5: "Major",
+  8: "Epic",
+};
+
 export interface User {
   id: string;
   name: string;
@@ -52,6 +68,7 @@ export interface Item {
   assignee_notes: string | null;
   status: Status;
   position: number;
+  effort_score: EffortScore;
   scheduled_date: string | null;
   due_date: string | null;
   completed_at: string | null;
@@ -89,6 +106,21 @@ export interface NotificationsResponse {
 }
 
 export type ItemScope = "active" | "planned" | "all";
+
+/**
+ * Payload shape returned by GET /api/velocity.
+ * Numeric fields that the backend computes with BCMath arrive as fixed-
+ * precision strings (4 dp) to avoid IEEE-754 drift crossing the wire.
+ */
+export interface VelocityForecast {
+  weekly_velocity_ema: string;
+  upcoming_effort: number;
+  success_probability: string;
+  burnout_risk: boolean;
+  alpha: string;
+  history_weeks: number;
+  weekly_history: { week_start: string; effort: number }[];
+}
 
 export interface AuthResponse {
   message: string;

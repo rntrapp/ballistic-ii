@@ -107,6 +107,113 @@
   animation: bounce-in 0.6s ease-out forwards;
 }
 
+/* SplashScreen animations */
+@keyframes splash-rocket {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-45deg);
+  }
+  25% {
+    transform: translateY(-8px) rotate(-43deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(-45deg);
+  }
+  75% {
+    transform: translateY(-10px) rotate(-47deg);
+  }
+}
+
+@keyframes splash-particle-1 {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(12px) scale(0.5);
+    opacity: 0.3;
+  }
+}
+
+@keyframes splash-particle-2 {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(16px) scale(0.4);
+    opacity: 0.2;
+  }
+}
+
+@keyframes splash-particle-3 {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(10px) scale(0.6);
+    opacity: 0.4;
+  }
+}
+
+@keyframes splash-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-bounce-dot {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-splash-rocket {
+  animation: splash-rocket 1.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+.animate-splash-particle-1 {
+  animation: splash-particle-1 1s ease-in-out infinite;
+}
+
+.animate-splash-particle-2 {
+  animation: splash-particle-2 1.2s ease-in-out infinite;
+}
+
+.animate-splash-particle-3 {
+  animation: splash-particle-3 0.9s ease-in-out infinite;
+}
+
+.animate-splash-fade-in-up {
+  animation: splash-fade-in-up 0.6s ease-out forwards;
+}
+
+.animate-splash-bounce-dot {
+  animation: splash-bounce-dot 1s ease-in-out infinite;
+}
+
+.splash-delay-100 {
+  animation-delay: 0.1s;
+}
+
+.splash-delay-200 {
+  animation-delay: 0.2s;
+}
+
 /* Smooth transitions for all interactive elements */
 * {
   transition-property:
