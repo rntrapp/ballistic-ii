@@ -14,6 +14,7 @@ interface EditItemModalProps {
     title: string;
     description?: string;
     project_id?: string | null;
+    effort_score?: number;
     scheduled_date?: string | null;
     due_date?: string | null;
     recurrence_rule?: string | null;

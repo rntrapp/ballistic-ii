@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-03-05
+
+### Added
+
+#### Velocity Forecasting & Burnout Detection
+
+- **`effort_score` column on `items`**: Fibonacci-scale effort estimate (1, 2, 3, 5, 8; default 1). Added via `ALTER TABLE ADD COLUMN` with an inline `CHECK` constraint so integrity is enforced at the database level on PostgreSQL, MySQL *and* SQLite (inline column-constraint syntax is portable; `ALTER TABLE ADD CONSTRAINT` is not).
+- **Composite indexes**: `items(user_id, completed_at)` and `items(user_id, due_date, status)` to cover the aggregation hot paths — `SUM(effort_score) WHERE user_id=? AND completed_at BETWEEN …` returns at most `lookback × 7` rows regardless of total item count.
+- **`VelocityForecastingService`** (`final readonly`): EMA-based weekly velocity calculation. Implements the canonical recurrence `EMAₜ = α·Xₜ + (1−α)·EMAₜ₋₁` seeded with the first observation. All arithmetic is BCMath fixed-point at scale 6 — no floating-point drift. Exposes `forecast()`, `weeklyEffortHistory()`, `exponentialMovingAverage()`, `upcomingEffort()`, `isBurnoutRisk()`, `successProbability()`.
+- **`GET /api/velocity`**: Returns `weekly_velocity` (BCMath string), `upcoming_effort`, `burnout_risk`, `success_probability`, `weekly_history[]`, plus echo of `lookback_weeks` / `alpha`. Query params `lookback_weeks` (1–52, default 8) and `alpha` (0 < α ≤ 1, default 0.3) are validated.
+- **`effort_score` validation**: `StoreItemRequest` and `UpdateItemRequest` validate via `Rule::in(VelocityForecastingService::fibonacciScale())` with a custom error message. The scale is generated from the Fibonacci recurrence (seed 1,2) capped at `MAX_EFFORT = 8`. Model default attribute is 1.
+- **`ItemResource`**: Emits `effort_score`.
+- **`ItemFactory`**: `withEffort(int)` and `completedAt(DateTimeInterface|string)` state methods for test-data shaping.
+
+### Changed
+
+- **Settings modal** (frontend): Converted from bottom-sheet slide-up panel (`items-end`, `rounded-t-2xl`, `animate-slide-in-up`) to a centred modal with internal scrolling (`items-center`, `max-h-[85vh]`, `animate-scale-in`). Header is a `flex-shrink-0` strip with a bottom border; body is `min-h-0 flex-1 overflow-y-auto` so only the content region scrolls when it exceeds the viewport cap. Added `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` linked to the `<h2>` title.
+
+### Tests
+
+- `VelocityForecastingServiceTest` (36 cases): EMA hand-computed references, α=1 tracks latest, low-α weights history, BCMath precision (no `1.1000000000000001`), α rejection outside `(0,1]`, burnout boundary (true when load > velocity, false when equal), probability clamping, weekly history zero-fill, ISO-week bucketing, user scoping, status filtering, upcoming-effort 7-day boundary, done/wontdo exclusion, null-due exclusion, full burnout integration (velocity 10 + load 25 ⇒ burnout=true, P=0.400000).
+- `VelocityTest` (12 cases): auth required, response shape, param validation, burnout acceptance scenario end-to-end, user isolation, `effort_score` CRUD (create, default-to-1, reject non-Fibonacci, reject zero, update).
+
 ## [0.15.0] - 2026-02-08
 
 ### Added

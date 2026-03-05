@@ -60,16 +60,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in p-4"
       onClick={handleBackdropClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-modal-title"
     >
       <div
         ref={modalRef}
-        className="w-full max-w-md rounded-t-2xl bg-white p-6 shadow-xl animate-slide-in-up"
+        className="flex w-[90vw] max-w-md max-h-[85vh] flex-col rounded-lg bg-white shadow-xl animate-scale-in"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
+        {/* Header — sticky, never scrolls away */}
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
+          <h2
+            id="settings-modal-title"
+            className="text-lg font-semibold text-gray-900"
+          >
+            Settings
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -94,116 +102,119 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </button>
         </div>
 
-        {/* Error message */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        {/* Scrollable body — only this region scrolls when content exceeds max-h */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+          {/* Error message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
-        {/* Saving indicator */}
-        {saving && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
-            Saving...
-          </div>
-        )}
+          {/* Saving indicator */}
+          {saving && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
+              Saving...
+            </div>
+          )}
 
-        {/* Settings Content */}
-        <div className="space-y-6">
-          {/* Features Section */}
-          <section>
-            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
-              Features
-            </h3>
-            <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-              {/* Dates & Scheduling toggle */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleToggle("dates", !dates)}
-                  disabled={saving}
-                  className={`
+          {/* Settings Content */}
+          <div className="space-y-6">
+            {/* Features Section */}
+            <section>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
+                Features
+              </h3>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+                {/* Dates & Scheduling toggle */}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleToggle("dates", !dates)}
+                    disabled={saving}
+                    className={`
                     relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full
                     border-2 border-transparent transition-colors duration-200 ease-in-out
                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
                     ${dates ? "bg-blue-600" : "bg-gray-200"}
                     ${saving ? "opacity-50 cursor-not-allowed" : ""}
                   `}
-                  role="switch"
-                  aria-checked={dates}
-                  aria-label="Dates & Scheduling"
-                >
-                  <span
-                    className={`
+                    role="switch"
+                    aria-checked={dates}
+                    aria-label="Dates & Scheduling"
+                  >
+                    <span
+                      className={`
                       pointer-events-none inline-block h-5 w-5 transform rounded-full
                       bg-white shadow ring-0 transition duration-200 ease-in-out
                       ${dates ? "translate-x-5" : "translate-x-0"}
                     `}
-                  />
-                </button>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-900">
-                    Dates &amp; Scheduling
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    Due dates, scheduled dates, and repeating tasks
-                  </span>
+                    />
+                  </button>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-900">
+                      Dates &amp; Scheduling
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Due dates, scheduled dates, and repeating tasks
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Task Delegation toggle */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleToggle("delegation", !delegation)}
-                  disabled={saving}
-                  className={`
+                {/* Task Delegation toggle */}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleToggle("delegation", !delegation)}
+                    disabled={saving}
+                    className={`
                     relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full
                     border-2 border-transparent transition-colors duration-200 ease-in-out
                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
                     ${delegation ? "bg-blue-600" : "bg-gray-200"}
                     ${saving ? "opacity-50 cursor-not-allowed" : ""}
                   `}
-                  role="switch"
-                  aria-checked={delegation}
-                  aria-label="Task Delegation"
-                >
-                  <span
-                    className={`
+                    role="switch"
+                    aria-checked={delegation}
+                    aria-label="Task Delegation"
+                  >
+                    <span
+                      className={`
                       pointer-events-none inline-block h-5 w-5 transform rounded-full
                       bg-white shadow ring-0 transition duration-200 ease-in-out
                       ${delegation ? "translate-x-5" : "translate-x-0"}
                     `}
-                  />
-                </button>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-900">
-                    Task Delegation
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    Assign tasks to other users
-                  </span>
+                    />
+                  </button>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-900">
+                      Task Delegation
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Assign tasks to other users
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          {/* Notifications Section */}
-          <section>
-            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
-              Notifications
-            </h3>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <PushNotificationToggle />
-            </div>
-          </section>
+            {/* Notifications Section */}
+            <section>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
+                Notifications
+              </h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <PushNotificationToggle />
+              </div>
+            </section>
 
-          {/* Version Info */}
-          <section className="pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400 text-center">
-              Ballistic v0.15.0
-            </p>
-          </section>
+            {/* Version Info */}
+            <section className="pt-4 border-t border-gray-100">
+              <p className="text-xs text-gray-400 text-center">
+                Ballistic v0.16.0
+              </p>
+            </section>
+          </div>
         </div>
       </div>
     </div>

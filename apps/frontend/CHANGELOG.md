@@ -1,3 +1,22 @@
+## 0.16.0 - 2026-03-05
+
+### Added
+
+#### Capacity Dashboard & Effort Estimation
+
+- **`CapacityDashboard` component**: Native bar-chart visualising weekly completed effort against the EMA-smoothed velocity line. A final "this week" bar renders the _upcoming_ effort, colour-coded for burnout risk. Shows velocity (pts/wk), committed points, and success probability with a live progress bar. Rendered at the top of the home page when the `dates` feature flag is on.
+- **Optimistic reactivity**: The dashboard fetches `weekly_velocity` + `weekly_history` once (derived from completed items, stable during editing) but computes `upcoming_effort`, `burnout_risk` and `success_probability` _locally_ from the `items` prop. Changing an item's `effort_score` from 1→8 or dragging a due date into this week repaints the chart _before_ the server responds — the acceptance-criteria "burnout risk" flag and probability shift happen instantly.
+- **Effort score picker in `ItemForm`**: Fibonacci-scale radio buttons (computed via `fibonacciScale(8)`, not hardcoded) in the "more settings" panel. Defaults to 1 for new items.
+- **`fetchVelocity()` API function**: `GET /api/velocity?lookback_weeks=…&alpha=…`.
+- **`fibonacciScale(max)` helper**: Generates distinct Fibonacci numbers ≤ max from the recurrence `Fₙ = Fₙ₋₁ + Fₙ₋₂`.
+
+### Changed
+
+- **`Item` type**: Added `effort_score: number` field.
+- **`VelocityForecast` type**: New interface for the forecast payload. Numeric fields arrive as BCMath fixed-point strings.
+- **`createItem` / `updateItem`**: Accept and send `effort_score`.
+- **`page.tsx`**: Optimistic create/update now includes `effort_score` so the capacity dashboard reacts immediately.
+
 ## 0.15.0 - 2026-02-08
 
 ### Added

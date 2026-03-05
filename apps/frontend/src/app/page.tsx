@@ -18,6 +18,7 @@ import { SplashScreen } from "@/components/SplashScreen";
 import { SettingsModal } from "@/components/SettingsModal";
 import { NotesModal } from "@/components/NotesModal";
 import { EditItemModal } from "@/components/EditItemModal";
+import { CapacityDashboard } from "@/components/CapacityDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 
 function normaliseItemResponse(payload: Item | { data?: Item }): Item {
@@ -484,6 +485,9 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Capacity dashboard — only shown with dates feature (needs due_date) */}
+      {dates && <CapacityDashboard items={[...items, ...assignedItems]} />}
+
       {/* Planned view banner */}
       {dates && viewScope === "planned" && (
         <div className="flex items-center justify-between rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-700 border border-sky-200">
@@ -817,6 +821,7 @@ export default function Home() {
                   : editingItem.assignee_notes,
               project_id: v.project_id ?? null,
               project: selectedProject ?? null,
+              effort_score: v.effort_score ?? editingItem.effort_score,
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               recurrence_rule: v.recurrence_rule ?? null,
@@ -838,6 +843,7 @@ export default function Home() {
               description: v.description || null,
               assignee_notes: v.assignee_notes,
               project_id: v.project_id,
+              effort_score: v.effort_score,
               scheduled_date: v.scheduled_date,
               due_date: v.due_date,
               recurrence_rule: v.recurrence_rule,
@@ -868,6 +874,7 @@ export default function Home() {
               description: v.description || null,
               status: "todo",
               position: items.length,
+              effort_score: v.effort_score ?? 1,
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               completed_at: null,
@@ -909,6 +916,7 @@ export default function Home() {
               status: "todo",
               project_id: v.project_id,
               position: items.length,
+              effort_score: v.effort_score,
               scheduled_date: v.scheduled_date,
               due_date: v.due_date,
               recurrence_rule: v.recurrence_rule,

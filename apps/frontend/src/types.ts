@@ -42,6 +42,25 @@ export interface Tag {
   updated_at: string;
 }
 
+/**
+ * Generate the distinct Fibonacci numbers ≤ max.
+ * Used as the effort-score scale for capacity forecasting.
+ */
+export function fibonacciScale(max: number): number[] {
+  const seq: number[] = [];
+  let a = 1,
+    b = 2;
+  while (a <= max) {
+    seq.push(a);
+    [a, b] = [b, a + b];
+  }
+  return seq;
+}
+
+/** Effort scale capped at 8 — mirrors backend VelocityForecastingService::FIBONACCI_SCALE */
+export const FIBONACCI_EFFORT_SCALE = fibonacciScale(8);
+export type EffortScore = number;
+
 export interface Item {
   id: string;
   user_id: string;
@@ -52,6 +71,7 @@ export interface Item {
   assignee_notes: string | null;
   status: Status;
   position: number;
+  effort_score: EffortScore;
   scheduled_date: string | null;
   due_date: string | null;
   completed_at: string | null;
@@ -99,6 +119,21 @@ export interface AuthResponse {
 export interface ValidationError {
   message: string;
   errors: Record<string, string[]>;
+}
+
+/**
+ * Velocity forecast returned by GET /api/velocity.
+ * Numeric fields are returned as fixed-point strings (BCMath scale=6)
+ * to preserve precision across the wire — parse with Number() for display.
+ */
+export interface VelocityForecast {
+  weekly_velocity: string;
+  upcoming_effort: number;
+  burnout_risk: boolean;
+  success_probability: string;
+  weekly_history: { week_start: string; effort: number }[];
+  lookback_weeks: number;
+  alpha: string;
 }
 
 export type RecurrencePreset =
