@@ -6,6 +6,7 @@ import type {
   User,
   UserLookup,
   NotificationsResponse,
+  VelocityForecast,
 } from "@/types";
 import { getAuthHeaders, clearToken } from "./auth";
 
@@ -174,6 +175,7 @@ export async function createItem(payload: {
   status: Status;
   project_id?: string | null;
   position?: number;
+  effort_score?: number;
   scheduled_date?: string | null;
   due_date?: string | null;
   recurrence_rule?: string | null;
@@ -189,6 +191,7 @@ export async function createItem(payload: {
       status: payload.status,
       project_id: payload.project_id || null,
       position: payload.position ?? 0,
+      effort_score: payload.effort_score ?? 1,
       scheduled_date: payload.scheduled_date || null,
       due_date: payload.due_date || null,
       recurrence_rule: payload.recurrence_rule || null,
@@ -232,6 +235,7 @@ export async function updateItem(
       | "assignee_notes"
       | "project_id"
       | "position"
+      | "effort_score"
       | "scheduled_date"
       | "due_date"
       | "recurrence_rule"
@@ -261,6 +265,34 @@ export async function deleteItem(id: string): Promise<{ ok: true }> {
 
   await handleResponse<void>(response);
   return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Velocity forecasting
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch the authenticated user's velocity forecast:
+ * EMA-smoothed weekly velocity, upcoming effort for the next 7 days,
+ * burnout-risk flag, and success probability.
+ */
+export async function fetchVelocity(params?: {
+  lookback_weeks?: number;
+  alpha?: number;
+}): Promise<VelocityForecast> {
+  const response = await fetch(
+    buildUrl("/api/velocity", {
+      lookback_weeks: params?.lookback_weeks?.toString(),
+      alpha: params?.alpha?.toString(),
+    }),
+    {
+      method: "GET",
+      headers: getAuthHeaders(),
+      cache: "no-store",
+    },
+  );
+
+  return handleResponse<VelocityForecast>(response);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

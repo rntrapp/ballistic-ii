@@ -1,7 +1,13 @@
 "use client";
 
-import type { Item, Project, RecurrencePreset, UserLookup } from "@/types";
-import { RECURRENCE_PRESET_RULES } from "@/types";
+import type {
+  EffortScore,
+  Item,
+  Project,
+  RecurrencePreset,
+  UserLookup,
+} from "@/types";
+import { FIBONACCI_EFFORT_SCALE, RECURRENCE_PRESET_RULES } from "@/types";
 import { useState } from "react";
 import { ProjectCombobox } from "./ProjectCombobox";
 import { AssignModal } from "./AssignModal";
@@ -21,6 +27,7 @@ type Props = {
     title: string;
     description?: string;
     project_id?: string | null;
+    effort_score?: EffortScore;
     scheduled_date?: string | null;
     due_date?: string | null;
     recurrence_rule?: string | null;
@@ -58,6 +65,9 @@ export function ItemForm({
     initial?.scheduled_date ?? "",
   );
   const [dueDate, setDueDate] = useState<string>(initial?.due_date ?? "");
+  const [effortScore, setEffortScore] = useState<EffortScore>(
+    initial?.effort_score ?? 1,
+  );
   const [recurrencePreset, setRecurrencePreset] = useState<RecurrencePreset>(
     derivePreset(initial?.recurrence_rule),
   );
@@ -86,6 +96,7 @@ export function ItemForm({
           title,
           description: description || undefined,
           project_id: projectId,
+          effort_score: effortScore,
           scheduled_date: scheduledDate || null,
           due_date: dueDate || null,
           recurrence_rule: RECURRENCE_PRESET_RULES[recurrencePreset],
@@ -152,6 +163,35 @@ export function ItemForm({
                   })
                 }
               />
+            </div>
+
+            {/* Effort score — Fibonacci scale */}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">
+                Effort
+              </label>
+              <div
+                className="flex gap-1"
+                role="radiogroup"
+                aria-label="Effort score"
+              >
+                {FIBONACCI_EFFORT_SCALE.map((score) => (
+                  <button
+                    key={score}
+                    type="button"
+                    role="radio"
+                    aria-checked={effortScore === score}
+                    onClick={() => setEffortScore(score)}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 ${
+                      effortScore === score
+                        ? "bg-[var(--blue)] text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {score}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Description */}

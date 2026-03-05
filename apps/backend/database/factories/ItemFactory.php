@@ -27,6 +27,7 @@ final class ItemFactory extends Factory
             'description' => fake()->optional(0.7)->paragraph(),
             'status' => fake()->randomElement(['todo', 'doing', 'done', 'wontdo']),
             'position' => fake()->numberBetween(0, 100),
+            'effort_score' => 1,
             'scheduled_date' => null,
             'due_date' => null,
             'completed_at' => null,
@@ -111,6 +112,27 @@ final class ItemFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'scheduled_date' => now()->addDays($daysAhead)->toDateString(),
+        ]);
+    }
+
+    /**
+     * Set a specific Fibonacci effort score (1, 2, 3, 5 or 8).
+     */
+    public function withEffort(int $score): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'effort_score' => $score,
+        ]);
+    }
+
+    /**
+     * Create an item that was completed at a specific moment.
+     */
+    public function completedAt(\DateTimeInterface|string $when): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'done',
+            'completed_at' => $when,
         ]);
     }
 }

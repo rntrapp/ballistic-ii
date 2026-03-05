@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Services\VelocityForecastingService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -38,6 +39,7 @@ final class UpdateItemRequest extends FormRequest
                 }),
             ],
             'position' => ['sometimes', 'integer', 'min:0'],
+            'effort_score' => ['sometimes', 'integer', Rule::in(VelocityForecastingService::fibonacciScale())],
             'scheduled_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:scheduled_date'],
             'recurrence_rule' => ['nullable', 'string', 'max:255'],
@@ -68,6 +70,7 @@ final class UpdateItemRequest extends FormRequest
             'project_id.exists' => 'The selected project does not exist or does not belong to you.',
             'tag_ids.*.exists' => 'One or more selected tags do not exist or do not belong to you.',
             'due_date.after_or_equal' => 'The due date must not be before the scheduled date.',
+            'effort_score.in' => 'Effort score must be a Fibonacci value: 1, 2, 3, 5 or 8.',
             'assignee_id.exists' => 'The selected user does not exist.',
         ];
     }
