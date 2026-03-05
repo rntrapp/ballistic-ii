@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-03-05
+
+### Added
+
+#### Predictive Velocity & Burnout Forecaster
+
+- **`effort_score` column on `items`**: New migration adds a `SMALLINT NOT NULL DEFAULT 1` column with a DB-level `CHECK (effort_score IN (1, 2, 3, 5, 8))` constraint — a raw-query write that bypasses Eloquent and form-request validation is still rejected by the database, so a rogue `effort_score = 200` cannot silently corrupt the `SUM(effort_score)` velocity aggregation. Column added via raw DDL (not Blueprint) because SQLite can only attach `CHECK` inline with `ADD COLUMN`; PostgreSQL accepts the identical statement. Backed by `App\Enums\EffortScore` for type safety across the request → model → resource pipeline.
+- **`VelocityForecastingService`**: Final, read-only service computing an exponential moving average over weekly completed effort. Core formula `EMAₜ = α·Xₜ + (1−α)·EMAₜ₋₁` with `α = 0.3`. Weekly buckets are aggregated SQL-side via `DATE_TRUNC`/`strftime` (driver-aware) — zero per-row PHP iteration regardless of item count.
+- **`VelocityForecast` DTO**: Immutable value object carrying `velocity_ema`, `velocity_std_dev`, `upcoming_effort`, `capacity_upper_bound` (EMA + 1σ), `probability_of_success` (normal CDF approximation), `burnout_risk` boolean, and the raw weekly series for sparkline rendering.
+- **`GET /api/velocity/forecast`**: Invokable `VelocityForecastController` returns the DTO as JSON. Sanctum-authenticated, scoped to the requesting user's owned items.
+- **Burnout detection**: Flag raised when upcoming-7-day effort exceeds `EMA + σ`. A user averaging 10 pts/week with 25 pts scheduled trips the flag immediately.
+- **Composite indexes for both forecast hot paths**: `(user_id, completed_at)` lets the 12-week historical aggregation seek-and-range-scan instead of walking every item the user has ever owned. `(user_id, due_date)` does the same for the upcoming-effort sum — the pre-existing single-column `due_date` index is useless on a multi-tenant table because the planner must choose between "all of this user's items" and "everyone's items due this week", and neither is selective. `status` is deliberately excluded from the key (the predicate is `NOT IN`, which cannot be range-scanned; residual filtering on ~7 days of one user's rows is trivial).
+
+### Fixed
+
+- **`TestCase::setUp()` now calls `withoutVite()`**: Sixteen Inertia page-render tests (Dashboard, Auth screens, Settings) were 500-ing with `ViteManifestNotFoundException` because `@vite()` in `app.blade.php` requires `public/build/manifest.json`, a frontend build artifact. Backend tests must not depend on frontend build state; `withoutVite()` stubs the directive. Full suite now green: 328/328.
+
+### Changed
+
+- **`Item::creating` hook**: Now applies `effort_score ??= 1` so in-memory model attributes match the DB default without a round-trip `refresh()`.
+- **`ItemFactory`**: Generates a random `EffortScore` case per item.
+- **`ItemResource`**: Serialises `effort_score` alongside existing fields.
+- **Store/Update request validation**: Accepts `effort_score` as an optional `Rule::in(EffortScore::values())`.
+
+### Tests
+
+- **`VelocityForecastingServiceTest`** (unit, 30+ tests): EMA correctness against hand-computed fixtures, seed-vs-recency weighting at varying α, standard deviation, probability CDF edge cases (zero variance, negative z-score), upper-bound derivation, empty-history fallbacks.
+- **`VelocityForecastTest`** (feature, 20 tests): endpoint authentication, JSON shape, historical velocity from completed items only, upcoming effort from due-within-7-days items only, burnout threshold crossing, zero-history cold start, effort-score persistence through the full request cycle.
+
 ## [0.15.0] - 2026-02-08
 
 ### Added

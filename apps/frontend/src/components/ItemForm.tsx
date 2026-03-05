@@ -1,7 +1,13 @@
 "use client";
 
-import type { Item, Project, RecurrencePreset, UserLookup } from "@/types";
-import { RECURRENCE_PRESET_RULES } from "@/types";
+import type {
+  EffortScore,
+  Item,
+  Project,
+  RecurrencePreset,
+  UserLookup,
+} from "@/types";
+import { EFFORT_LABELS, EFFORT_SCORES, RECURRENCE_PRESET_RULES } from "@/types";
 import { useState } from "react";
 import { ProjectCombobox } from "./ProjectCombobox";
 import { AssignModal } from "./AssignModal";
@@ -21,6 +27,7 @@ type Props = {
     title: string;
     description?: string;
     project_id?: string | null;
+    effort_score?: EffortScore;
     scheduled_date?: string | null;
     due_date?: string | null;
     recurrence_rule?: string | null;
@@ -58,6 +65,9 @@ export function ItemForm({
     initial?.scheduled_date ?? "",
   );
   const [dueDate, setDueDate] = useState<string>(initial?.due_date ?? "");
+  const [effortScore, setEffortScore] = useState<EffortScore>(
+    initial?.effort_score ?? EFFORT_SCORES[0],
+  );
   const [recurrencePreset, setRecurrencePreset] = useState<RecurrencePreset>(
     derivePreset(initial?.recurrence_rule),
   );
@@ -86,6 +96,7 @@ export function ItemForm({
           title,
           description: description || undefined,
           project_id: projectId,
+          effort_score: effortScore,
           scheduled_date: scheduledDate || null,
           due_date: dueDate || null,
           recurrence_rule: RECURRENCE_PRESET_RULES[recurrencePreset],
@@ -201,6 +212,39 @@ export function ItemForm({
                   />
                   <p className="mt-1 text-xs text-slate-400">
                     Deadline for this item.
+                  </p>
+                </div>
+
+                {/* Effort */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                    Effort
+                  </label>
+                  <div
+                    role="radiogroup"
+                    aria-label="Effort score"
+                    className="flex gap-1"
+                  >
+                    {EFFORT_SCORES.map((score) => (
+                      <button
+                        key={score}
+                        type="button"
+                        role="radio"
+                        aria-checked={effortScore === score}
+                        onClick={() => setEffortScore(score)}
+                        title={EFFORT_LABELS[score]}
+                        className={`flex-1 rounded-md border px-2 py-2 text-sm font-medium tabular-nums transition-all duration-200 ${
+                          effortScore === score
+                            ? "border-[var(--blue)] bg-[var(--blue)] text-white"
+                            : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"
+                        }`}
+                      >
+                        {score}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {EFFORT_LABELS[effortScore]} — feeds the velocity forecast.
                   </p>
                 </div>
 

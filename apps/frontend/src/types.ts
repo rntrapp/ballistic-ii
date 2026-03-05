@@ -1,5 +1,17 @@
 export type Status = "todo" | "doing" | "done" | "wontdo";
 
+/** Fibonacci effort scale — mirrors backend `App\Enums\EffortScore`. */
+export const EFFORT_SCORES = [1, 2, 3, 5, 8] as const;
+export type EffortScore = (typeof EFFORT_SCORES)[number];
+
+export const EFFORT_LABELS: Record<EffortScore, string> = {
+  1: "Trivial",
+  2: "Small",
+  3: "Medium",
+  5: "Large",
+  8: "Extra Large",
+};
+
 export interface User {
   id: string;
   name: string;
@@ -52,6 +64,7 @@ export interface Item {
   assignee_notes: string | null;
   status: Status;
   position: number;
+  effort_score: EffortScore;
   scheduled_date: string | null;
   due_date: string | null;
   completed_at: string | null;
@@ -89,6 +102,17 @@ export interface NotificationsResponse {
 }
 
 export type ItemScope = "active" | "planned" | "all";
+
+export interface VelocityForecast {
+  velocity_ema: number;
+  velocity_std_dev: number;
+  upcoming_effort: number;
+  capacity_upper_bound: number;
+  probability_of_success: number;
+  burnout_risk: boolean;
+  weeks_analysed: number;
+  weekly_series: number[];
+}
 
 export interface AuthResponse {
   message: string;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\EffortScore;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -27,6 +28,7 @@ final class ItemFactory extends Factory
             'description' => fake()->optional(0.7)->paragraph(),
             'status' => fake()->randomElement(['todo', 'doing', 'done', 'wontdo']),
             'position' => fake()->numberBetween(0, 100),
+            'effort_score' => EffortScore::default()->value,
             'scheduled_date' => null,
             'due_date' => null,
             'completed_at' => null,
@@ -62,6 +64,26 @@ final class ItemFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'status' => 'done',
             'completed_at' => now(),
+        ]);
+    }
+
+    /**
+     * Mark the item completed at a specific moment with a specific effort.
+     * Primary helper for velocity-forecasting test fixtures.
+     */
+    public function completedAt(\DateTimeInterface|string $when, EffortScore $effort = EffortScore::Trivial): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'done',
+            'completed_at' => $when,
+            'effort_score' => $effort->value,
+        ]);
+    }
+
+    public function withEffort(EffortScore $effort): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'effort_score' => $effort->value,
         ]);
     }
 

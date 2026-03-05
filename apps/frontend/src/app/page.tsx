@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { useVelocityForecast } from "@/hooks/useVelocityForecast";
 import { useRouter } from "next/navigation";
 import type { Item, ItemScope, Project } from "@/types";
+import { EFFORT_SCORES } from "@/types";
 import {
   fetchItems,
   createItem,
@@ -18,6 +20,7 @@ import { SplashScreen } from "@/components/SplashScreen";
 import { SettingsModal } from "@/components/SettingsModal";
 import { NotesModal } from "@/components/NotesModal";
 import { EditItemModal } from "@/components/EditItemModal";
+import { CapacityDashboard } from "@/components/CapacityDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 
 function normaliseItemResponse(payload: Item | { data?: Item }): Item {
@@ -97,6 +100,16 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const { dates, delegation } = useFeatureFlags();
+
+  // Velocity forecast — gated on the dates feature. Reacts to `items`
+  // synchronously: effort/due-date edits re-derive upcoming load, burnout,
+  // and probability on the same render via a delta overlay. Only status→done
+  // needs a server round-trip (it shifts historical EMA/σ).
+  const {
+    forecast,
+    loading: forecastLoading,
+    refresh: refreshForecast,
+  } = useVelocityForecast(isAuthenticated && dates, items);
 
   const showError = useCallback((message: string) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -221,13 +234,14 @@ export default function Home() {
           setDelegatedItems(delegatedData);
         })
         .catch(console.error);
+      void refreshForecast();
     }
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isAuthenticated, viewScope, delegation]);
+  }, [isAuthenticated, viewScope, delegation, refreshForecast]);
 
   // Sort my tasks by urgency (only when dates feature is enabled)
   const sortedItems = dates ? sortByUrgency(items) : items;
@@ -484,6 +498,11 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Capacity dashboard — velocity forecast & burnout risk */}
+      {dates && (
+        <CapacityDashboard forecast={forecast} loading={forecastLoading} />
+      )}
+
       {/* Planned view banner */}
       {dates && viewScope === "planned" && (
         <div className="flex items-center justify-between rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-700 border border-sky-200">
@@ -522,6 +541,7 @@ export default function Home() {
                 draggingId={draggingId}
                 dragOverId={dragOverId}
                 onError={showError}
+                onPersisted={refreshForecast}
               />
             );
           }
@@ -817,6 +837,7 @@ export default function Home() {
                   : editingItem.assignee_notes,
               project_id: v.project_id ?? null,
               project: selectedProject ?? null,
+              effort_score: v.effort_score ?? editingItem.effort_score,
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               recurrence_rule: v.recurrence_rule ?? null,
@@ -838,6 +859,7 @@ export default function Home() {
               description: v.description || null,
               assignee_notes: v.assignee_notes,
               project_id: v.project_id,
+              effort_score: v.effort_score,
               scheduled_date: v.scheduled_date,
               due_date: v.due_date,
               recurrence_rule: v.recurrence_rule,
@@ -868,6 +890,7 @@ export default function Home() {
               description: v.description || null,
               status: "todo",
               position: items.length,
+              effort_score: v.effort_score ?? EFFORT_SCORES[0],
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               completed_at: null,
@@ -909,6 +932,7 @@ export default function Home() {
               status: "todo",
               project_id: v.project_id,
               position: items.length,
+              effort_score: v.effort_score,
               scheduled_date: v.scheduled_date,
               due_date: v.due_date,
               recurrence_rule: v.recurrence_rule,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { Item, Project, UserLookup } from "@/types";
+import type { EffortScore, Item, Project, UserLookup } from "@/types";
 import { ItemForm } from "./ItemForm";
 
 interface EditItemModalProps {
@@ -14,6 +14,7 @@ interface EditItemModalProps {
     title: string;
     description?: string;
     project_id?: string | null;
+    effort_score?: EffortScore;
     scheduled_date?: string | null;
     due_date?: string | null;
     recurrence_rule?: string | null;
@@ -48,6 +49,7 @@ export function EditItemModal({
       title: string;
       description?: string;
       project_id?: string | null;
+      effort_score?: EffortScore;
       scheduled_date?: string | null;
       due_date?: string | null;
       recurrence_rule?: string | null;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Enums\EffortScore;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -37,6 +38,7 @@ final class StoreItemRequest extends FormRequest
                 }),
             ],
             'position' => ['integer', 'min:0'],
+            'effort_score' => ['sometimes', 'integer', Rule::enum(EffortScore::class)],
             'scheduled_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:scheduled_date'],
             'recurrence_rule' => ['nullable', 'string', 'max:255'],

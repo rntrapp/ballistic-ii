@@ -24,6 +24,8 @@ type Props = {
   draggingId: string | null;
   dragOverId: string | null;
   onError: (message: string) => void;
+  /** Fires after a status change has been persisted server-side. */
+  onPersisted?: () => void;
 };
 
 export function ItemRow({
@@ -40,6 +42,7 @@ export function ItemRow({
   draggingId,
   dragOverId,
   onError,
+  onPersisted,
 }: Props) {
   const { dates, delegation } = useFeatureFlags();
 
@@ -92,6 +95,7 @@ export function ItemRow({
             updated_at: serverItem.updated_at,
           };
         });
+        onPersisted?.();
       })
       .catch((error) => {
         console.error("Failed to update status:", error);

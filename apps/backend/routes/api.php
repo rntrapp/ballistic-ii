@@ -15,6 +15,7 @@ use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\UserDiscoveryController;
 use App\Http\Controllers\UserLookupController;
+use App\Http\Controllers\VelocityForecastController;
 use Illuminate\Support\Facades\Route;
 
 // Public API routes (no authentication required)
@@ -68,6 +69,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::apiResource('projects', ProjectController::class);
     Route::post('projects/{project}/archive', [ProjectController::class, 'archive']);
     Route::post('projects/{project}/restore', [ProjectController::class, 'restore']);
+
+    // Velocity forecasting (EMA-based burnout prediction)
+    Route::get('velocity/forecast', VelocityForecastController::class);
 
     // Items (specific routes before resource to ensure proper matching)
     Route::post('items/reorder', [ItemController::class, 'reorder']);
