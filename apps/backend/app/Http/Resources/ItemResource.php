@@ -27,6 +27,7 @@ final class ItemResource extends JsonResource
             'assignee_notes' => $this->assignee_notes,
             'status' => $this->status,
             'position' => $this->position,
+            'effort_score' => $this->effort_score,
             'scheduled_date' => $this->scheduled_date?->toDateString(),
             'due_date' => $this->due_date?->toDateString(),
             'completed_at' => $this->completed_at?->toIso8601String(),

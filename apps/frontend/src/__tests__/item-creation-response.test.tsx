@@ -40,6 +40,7 @@ jest.mock("@/lib/auth", () => ({
 // Mock the API
 jest.mock("../lib/api", () => ({
   fetchItems: jest.fn(() => Promise.resolve([])),
+  fetchVelocityForecast: jest.fn(() => Promise.resolve(null)),
   fetchProjects: jest.fn(() => Promise.resolve([])),
   createProject: jest.fn(() =>
     Promise.resolve({
@@ -162,6 +163,7 @@ describe("Item Creation Response Handling", () => {
           status: "todo",
           project_id: null,
           position: 0,
+          effort_score: 1,
           scheduled_date: null,
           due_date: null,
           recurrence_rule: null,

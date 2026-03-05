@@ -268,6 +268,7 @@ describe("ItemForm with ProjectCombobox", () => {
     expect(onSubmit).toHaveBeenCalledWith({
       title: "My new task",
       description: undefined,
+      effort_score: 1,
       project_id: "proj-1",
       scheduled_date: null,
       due_date: null,
@@ -301,6 +302,7 @@ describe("ItemForm with ProjectCombobox", () => {
     expect(onSubmit).toHaveBeenCalledWith({
       title: "Task without project",
       description: undefined,
+      effort_score: 1,
       project_id: null,
       scheduled_date: null,
       due_date: null,

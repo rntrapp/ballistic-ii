@@ -17,6 +17,7 @@ describe("Move to Top functionality", () => {
     description: null,
     status: "todo",
     position: 1,
+    effort_score: 1,
     scheduled_date: null,
     due_date: null,
     completed_at: null,
@@ -142,6 +143,7 @@ describe("Move to Top functionality", () => {
 describe("Move to Top optimistic update", () => {
   it("should move item to the top of the list", () => {
     const baseItem = {
+      effort_score: 1,
       assignee_id: null,
       project_id: null,
       description: null,
@@ -234,6 +236,7 @@ describe("Move to Top optimistic update", () => {
 
   it("should not modify the list when item is already at the top", () => {
     const baseItem = {
+      effort_score: 1,
       assignee_id: null,
       project_id: null,
       description: null,

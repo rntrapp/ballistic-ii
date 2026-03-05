@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-03-05
+
+### Added
+
+#### Predictive Velocity & Burnout Forecaster
+
+- **`effort_score` column** on `items` (smallint, `DEFAULT 1`, `CHECK (effort_score IN (1, 2, 3, 5, 8))`) — the Fibonacci domain is enforced at the storage layer so seeders, tinker and any write path bypassing FormRequest validation still can't poison the velocity aggregates. CHECK inlined on `ADD COLUMN` so sqlite (tests) and pgsql (prod) both honour it. Composite index `(user_id, status, completed_at)` for the aggregation hot path
+- **`VelocityForecastingService`** — EMA-based throughput predictor:
+  - Weekly effort aggregated entirely in SQL (`SUM` + `GROUP BY` week bucket, driver-aware PostgreSQL/SQLite expressions) — no PHP-side iteration over item rows
+  - `EMA_t = α·X_t + (1−α)·EMA_{t−1}` with `α = 2/(N+1)`, N=4 (four-week window)
+  - Exponentially-weighted variance tracked alongside the mean for a recency-matched σ
+  - **Fixed-point integer arithmetic** (scale `10_000`, `intdiv()`) for all intermediate EMA/variance computation — the burnout-gate comparison runs on scaled integers so `velocity=10, load=10` never false-positives from float residue
+  - Normal-CDF approximation (Abramowitz & Stegun 26.2.17, error < 7.5e-8) for `probability_of_success` — native PHP, no `ext-stats`
+  - Gap weeks densified to explicit zeros so idle periods pull velocity down correctly
+- **`GET /api/velocity/forecast`** endpoint (Sanctum-guarded, invokable controller) returning `velocity`, `std_dev`, `capacity_upper`, `upcoming_load`, `burnout_risk`, `probability_of_success`, `weekly_history`, `sample_weeks`
+- **Fibonacci validation** on `StoreItemRequest` / `UpdateItemRequest` via `Rule::in(VelocityForecastingService::FIBONACCI)`
+- **`ItemFactory`** helpers: `completedAt(DateTimeInterface $when, int $effort)` and `effort(int $score)` states
+
+### Testing
+
+- **`VelocityForecastingServiceTest`** (unit, bare `PHPUnit\Framework\TestCase`, zero DB): 29 cases covering EMA recursion correctness, recency weighting, variance behaviour, burnout boundary conditions (load==μ with σ==0 → NOT burnout), probability bounds, overflow guard, and a `#[DataProvider]` Fibonacci-scale sweep
+- **`VelocityForecastTest`** (feature, `RefreshDatabase`): 21 cases covering SQL bucketing, user isolation, status/window/soft-delete filtering, gap densification, endpoint auth + shape, the spec's 10-pts/wk-vs-25-pts-load burnout scenario, reactivity (PATCH effort 1→8 flips `burnout_risk` false→true), and DB-level CHECK enforcement (direct Eloquent writes of `effort_score=4` and `effort_score=0` both raise `QueryException`)
+
 ## [0.15.0] - 2026-02-08
 
 ### Added

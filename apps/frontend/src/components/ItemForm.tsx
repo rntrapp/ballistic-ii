@@ -1,7 +1,7 @@
 "use client";
 
 import type { Item, Project, RecurrencePreset, UserLookup } from "@/types";
-import { RECURRENCE_PRESET_RULES } from "@/types";
+import { RECURRENCE_PRESET_RULES, EFFORT_SCORES } from "@/types";
 import { useState } from "react";
 import { ProjectCombobox } from "./ProjectCombobox";
 import { AssignModal } from "./AssignModal";
@@ -21,6 +21,7 @@ type Props = {
     title: string;
     description?: string;
     project_id?: string | null;
+    effort_score?: number;
     scheduled_date?: string | null;
     due_date?: string | null;
     recurrence_rule?: string | null;
@@ -58,6 +59,9 @@ export function ItemForm({
     initial?.scheduled_date ?? "",
   );
   const [dueDate, setDueDate] = useState<string>(initial?.due_date ?? "");
+  const [effortScore, setEffortScore] = useState<number>(
+    initial?.effort_score ?? 1,
+  );
   const [recurrencePreset, setRecurrencePreset] = useState<RecurrencePreset>(
     derivePreset(initial?.recurrence_rule),
   );
@@ -86,6 +90,7 @@ export function ItemForm({
           title,
           description: description || undefined,
           project_id: projectId,
+          effort_score: effortScore,
           scheduled_date: scheduledDate || null,
           due_date: dueDate || null,
           recurrence_rule: RECURRENCE_PRESET_RULES[recurrencePreset],
@@ -170,6 +175,30 @@ export function ItemForm({
 
             {dates && (
               <>
+                {/* Effort — Fibonacci planning-poker scale */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                    Effort
+                  </label>
+                  <div className="flex gap-1">
+                    {EFFORT_SCORES.map((score) => (
+                      <button
+                        key={score}
+                        type="button"
+                        onClick={() => setEffortScore(score)}
+                        className={`flex-1 rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
+                          effortScore === score
+                            ? "bg-[var(--blue)] text-white"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                        aria-pressed={effortScore === score}
+                      >
+                        {score}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Scheduled Date */}
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">
