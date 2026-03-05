@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-03-06
+
+### Added
+
+#### Model Context Protocol (MCP) Server
+
+- **`POST /mcp/ballistic` JSON-RPC 2.0 endpoint**: Sanctum-authenticated HTTP transport exposing tasks, projects, and tags to external AI agents. Full MCP spec compliance (initialize handshake, tools/list, tools/call, resources/list, resources/read, ping). Also registered as STDIO server via `artisan mcp:start ballistic` for local Inspector debugging.
+- **`laravel/mcp` v0.1.1 dependency**: Official Laravel MCP SDK providing transport, JSON-RPC dispatch, and Tool/Resource base classes.
+- **9 MCP Tools** (`App\Mcp\Tools\*`): `list-tasks`, `get-task`, `create-task`, `update-task`, `complete-task`, `delete-task`, `list-projects`, `create-project`, `list-tags`. All annotated with `#[IsReadOnly]` / `#[IsIdempotent]` / `#[IsDestructive]` hints so clients can reason about side-effects.
+- **3 MCP Resources** (`App\Mcp\Resources\*`): `ballistic://projects` and `ballistic://tags` return the authenticated user's reference data as JSON; `ballistic://schema` returns live, introspected JSON Schema definitions for all writable model columns.
+- **`BallisticServer`** (`App\Mcp\Servers`): Registers tools/resources and supplies agent instructions; pulls server name/version from `config/mcp.php`.
+- **`config/mcp.php`**: Per-model config (backing table, hidden columns, read-only columns), schema cache TTL, and pagination cap.
+
+#### Dynamic Schema Synchronisation
+
+- **`SchemaGenerator`** (`App\Mcp\Support`): Introspects `Schema::getColumns()` at runtime and emits MCP-compatible JSON Schema. Cache key is fingerprinted by `max(migrations.batch)` so running `artisan migrate` invalidates automatically — new columns appear in tool input schemas on the next request **without any code change or manual cache bust**. The fingerprint is re-read on every call (no process-level memoisation) so long-lived processes — the STDIO transport and Octane workers — pick up migrations without restart. Handles SQLite/MySQL/Postgres type mapping (int → integer, decimal → number, json → object, etc.).
+
+#### Context-Aware Security Guard
+
+- **`ContextGuard`** (`App\Mcp\Support`): Mandatory funnel for every MCP tool/resource call. Five guarantees:
+  - `user()` — resolves the Sanctum bearer-token user or throws `McpAuthorisationException`;
+  - `scopeToOwner()` — forces `where user_id = auth()->id()` on all list queries;
+  - `findOrDeny()` — single-row lookups delegate to existing Policy layer; **"not found" and "forbidden" return identical error messages** so agents cannot enumerate foreign UUIDs;
+  - `sanitise()` — strips `user_id`, `id`, timestamps, and `assignee_id` from any payload so a hallucinated `{"user_id": "<victim>"}` is silently discarded, never persisted;
+  - `assertOwnsReferences()` — **dynamically** verifies every tenant-scoped foreign-key value in the write payload references a row you own. FK constraints are introspected via `Schema::getForeignKeys()` and cached alongside the column schema, so a migration that adds `items.milestone_id → milestones.id` is **automatically ownership-checked on the next request with zero code changes** — matching the dynamic-schema guarantee.
+- **`McpAuthorisationException`**: Extends `ValidationException` so `laravel/mcp`'s `CallTool` method catches it and returns a clean `ToolResult::error()` instead of an opaque `-32603` JSON-RPC internal error.
+
+#### Routing
+
+- **`routes/ai.php`**: Registers the server via `Mcp::web()` (Sanctum-protected) and `Mcp::local()` (STDIO). Explicitly wired into `bootstrap/app.php` via `withRouting(then: …)` because Laravel 12's slim-skeleton `RouteServiceProvider` loads routes in a `booted()` callback that fires after package providers have already booted, meaning the MCP package's own `boot()`-time route registration is clobbered.
+
+#### Tests
+
+- **104 new tests / 507 assertions** across 5 test classes:
+  - `tests/Unit/Mcp/SchemaGeneratorTest` — column exclusion, JSON Schema shape, type mapping, nullable union types, cache behaviour, the headline dynamic-sync test (add column + bump migration batch mid-test → verify it surfaces in introspected schema **with no code changes and no cache flush**), a long-lived-process regression test proving the fingerprint is re-queried on every call, and **dynamic FK discovery** (migrate a new `items.milestone_id` constraint mid-test → verify it appears in `tenantScopedForeignKeys()`).
+  - `tests/Unit/Mcp/ContextGuardTest` — unauthenticated denial, ownership scoping, policy delegation, anti-enumeration (identical error for missing vs foreign), payload sanitisation including deny-list-based future-column passthrough, and **dynamic FK ownership enforcement** (foreign/nonexistent FK rejection, null/absent passthrough, and the headline guard test: migrate a new tenant-scoped FK mid-test and prove cross-tenant references are blocked without any guard code changes).
+  - `tests/Feature/Mcp/McpServerTest` — JSON-RPC 2.0 envelope, initialize handshake, capability discovery, `tools/list` including dynamic schema properties, all three `resources/read` URIs, unknown-method -32601 error, performance budget (handshake + list + call in < 100 ms), and **JSON-RPC 2.0 error-code compliance**: data-provider-driven tests POST raw bodies asserting valid JSON non-objects (`42`, `"hello"`, `true`, `null`, `[]`, `{}`, …) return `-32600` Invalid Request while malformed JSON (`{broken`, `"unterminated`, trailing commas) returns `-32700` Parse error — locking vendor `laravel/mcp` behaviour so a transport-layer refactor that conflates the two cannot ship.
+  - `tests/Feature/Mcp/McpToolsTest` — happy path for every tool including filters, scopes, status transitions, soft-delete, tag sync, project moves, `completed_at` auto-management, and the full end-to-end agent workflow (discover projects → read task list → write new task with project selection + tags + notes → verify via read-back).
+  - `tests/Feature/Mcp/McpSecurityTest` — unauthenticated 401, cross-tenant read/write denial on every write tool, foreign project/tag reference rejection, **dynamic FK cross-tenant rejection end-to-end** (migrate `items.milestone_id` mid-test, create victim milestone, call `create-task` with the foreign UUID → tool error + nothing persisted), ownership-field payload injection stripping on both `create-*` and `update-*` tools, and input validation (missing title, bad status enum, malformed UUID, invalid hex colour, date ordering).
+  - Shared `InteractsWithMcp` trait wraps the raw JSON-RPC endpoint with typed `callToolOk()` / `callToolError()` / `rpc()` / `rawRpc()` helpers.
+
 ## [0.15.0] - 2026-02-08
 
 ### Added
