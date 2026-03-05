@@ -65,10 +65,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     >
       <div
         ref={modalRef}
-        className="w-full max-w-md rounded-t-2xl bg-white p-6 shadow-xl animate-slide-in-up"
+        className="flex max-h-[85vh] w-full max-w-md flex-col rounded-t-2xl bg-white p-6 shadow-xl animate-slide-in-up"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        {/* Header — pinned while the body scrolls */}
+        <div className="flex shrink-0 items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
           <button
             type="button"
@@ -108,8 +108,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </div>
         )}
 
-        {/* Settings Content */}
-        <div className="space-y-6">
+        {/* Settings Content — takes remaining height, scrolls internally.
+            min-h-0 defeats the flex-item min-content floor so the panel
+            actually caps at 85vh instead of growing to fit. */}
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto">
           {/* Features Section */}
           <section>
             <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">

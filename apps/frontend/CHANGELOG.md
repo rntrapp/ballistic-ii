@@ -18,6 +18,7 @@
 
 ### Changed
 
+- **`SettingsModal`** — bottom sheet now caps at `max-h-[85vh]` with a pinned header (`shrink-0`) and an internally scrollable body (`flex-1 min-h-0 overflow-y-auto`). Close button and backdrop stay reachable no matter how busy the panel gets
 - **`Item` type** — added required `effort_score: number`
 - **`createItem` / `updateItem`** — carry `effort_score` in payloads
 - Test fixtures and `@/lib/api` jest mocks updated for the new field + `fetchVelocityForecast`
