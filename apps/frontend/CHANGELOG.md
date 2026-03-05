@@ -1,3 +1,27 @@
+## 0.16.0 - 2026-03-05
+
+### Added
+
+#### Capacity Dashboard (Velocity Forecaster)
+
+- **`CapacityDashboard` component** — compact inline widget rendering burnout/on-track status, `load / capacity` gauge, success probability %, and an SVG sparkline of the last 12 weeks of throughput. Pure presentation (all maths lives server-side); returns `null` on cold-start (`sample_weeks === 0`). `role="status"` + `aria-live="polite"`
+- **`fetchVelocityForecast()` API function** — `GET /api/velocity/forecast`, `cache: "no-store"`
+- **`VelocityForecast` type** and `EFFORT_SCORES = [1, 2, 3, 5, 8] as const` with derived `EffortScore` union
+- **Effort picker** in `ItemForm` — five-button Fibonacci segment control (`aria-pressed`), included in submit payload; shown alongside the date pickers
+- **`lib/forecast.ts`** — client-side forecast maths for zero-round-trip reactivity:
+  - `loadContribution(item)` — mirrors the server's upcoming-load filter (`status ∈ {todo, doing}`, `due_date ∈ [today, today+7]`) to score a single item
+  - `reforecast(base, newLoad)` — re-derives `burnout_risk` / `probability_of_success` from an immutable historical basis (`velocity`, `std_dev`) plus a new load. Uses the same Abramowitz & Stegun 26.2.17 normal-CDF polynomial as `VelocityForecastingService` so client/server agree to |ε| < 7.5e-8
+- **Optimistic forecast patching** in `page.tsx` — `adjustForecast(delta)` shifts `upcoming_load` synchronously alongside `setItems` at every create/edit. Delta = `loadContribution(after) − loadContribution(before)`, so bumping effort 1→8 on a due-this-week task moves the gauge by +7 the instant Save is clicked — no API round trip. Reversed on API failure. Server fetch happens only at initial load (historical basis depends solely on completed items, which open-task edits can't affect)
+- **`forecast.test.ts`** — 21 tests covering the load filter (horizon boundaries, status gates, overdue exclusion), the 1→8 delta, normal-CDF cross-check at σ=1 (P≈0.1587), zero-variance burnout boundary, and optimistic apply/revert idempotence
+- **`capacity-dashboard.test.tsx`** — 11 render tests: null on cold start (`sample_weeks === 0`), On Track vs Burnout Risk label, `{load} / {capacity}` + `{pct}% likely` text, gauge-width clamp at 100% when overloaded, one sparkline bar per history week, and a `rerender()` proving the label flips when the forecast prop is swapped
+- **`forecast-reactivity.test.tsx`** — 4 user-scenario integration tests rendering the full `<Home />` tree with a frozen clock and `dates` flag on. The headline test holds `updateItem` on a never-resolving promise, clicks effort 8 in the edit modal, and asserts the dashboard already reads `Burnout Risk · 8 / 3.5 pts · 0% likely` with `fetchVelocityForecast` called exactly once — proving the shift is the optimistic path, not a server round trip. Also covers revert-on-reject (dashboard rolls back to `On Track · 1 / 3.5`), clearing `due_date` to pull an item out of the load window, and the no-op case for items due past the 7-day horizon
+
+### Changed
+
+- **`Item` type** — added required `effort_score: number`
+- **`createItem` / `updateItem`** — carry `effort_score` in payloads
+- Test fixtures and `@/lib/api` jest mocks updated for the new field + `fetchVelocityForecast`
+
 ## 0.15.0 - 2026-02-08
 
 ### Added

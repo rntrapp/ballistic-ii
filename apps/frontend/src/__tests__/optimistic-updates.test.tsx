@@ -38,6 +38,7 @@ jest.mock("@/lib/auth", () => ({
 
 // Mock the API functions
 jest.mock("@/lib/api", () => ({
+  fetchVelocityForecast: jest.fn().mockResolvedValue(null),
   fetchProjects: jest.fn().mockResolvedValue([]),
   createProject: jest.fn().mockResolvedValue({
     id: "new-proj",

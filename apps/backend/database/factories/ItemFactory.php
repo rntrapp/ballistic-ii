@@ -27,6 +27,7 @@ final class ItemFactory extends Factory
             'description' => fake()->optional(0.7)->paragraph(),
             'status' => fake()->randomElement(['todo', 'doing', 'done', 'wontdo']),
             'position' => fake()->numberBetween(0, 100),
+            'effort_score' => 1,
             'scheduled_date' => null,
             'due_date' => null,
             'completed_at' => null,
@@ -62,6 +63,25 @@ final class ItemFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'status' => 'done',
             'completed_at' => now(),
+        ]);
+    }
+
+    /**
+     * Completed at a specific moment with a given effort — for velocity tests.
+     */
+    public function completedAt(\DateTimeInterface $when, int $effort = 1): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'done',
+            'completed_at' => $when,
+            'effort_score' => $effort,
+        ]);
+    }
+
+    public function effort(int $score): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'effort_score' => $score,
         ]);
     }
 

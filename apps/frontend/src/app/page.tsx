@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { useRouter } from "next/navigation";
-import type { Item, ItemScope, Project } from "@/types";
+import type { Item, ItemScope, Project, VelocityForecast } from "@/types";
 import {
   fetchItems,
   createItem,
@@ -11,6 +11,7 @@ import {
   reorderItems,
   fetchProjects,
   createProject,
+  fetchVelocityForecast,
 } from "@/lib/api";
 import { ItemRow } from "@/components/ItemRow";
 import { EmptyState } from "@/components/EmptyState";
@@ -18,6 +19,8 @@ import { SplashScreen } from "@/components/SplashScreen";
 import { SettingsModal } from "@/components/SettingsModal";
 import { NotesModal } from "@/components/NotesModal";
 import { EditItemModal } from "@/components/EditItemModal";
+import { CapacityDashboard } from "@/components/CapacityDashboard";
+import { loadContribution, reforecast } from "@/lib/forecast";
 import { useAuth } from "@/contexts/AuthContext";
 
 function normaliseItemResponse(payload: Item | { data?: Item }): Item {
@@ -96,7 +99,22 @@ export default function Home() {
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [forecast, setForecast] = useState<VelocityForecast | null>(null);
   const { dates, delegation } = useFeatureFlags();
+
+  // Historical basis (velocity, σ, weekly_history) is server-authoritative.
+  // Load-dependent fields are optimistically re-derived on the client so
+  // bumping an effort score shifts the gauge instantly, no round trip.
+  const refreshForecast = useCallback(() => {
+    fetchVelocityForecast().then(setForecast).catch(console.error);
+  }, []);
+
+  const adjustForecast = useCallback((delta: number) => {
+    if (delta === 0) return;
+    setForecast((prev) =>
+      prev ? reforecast(prev, prev.upcoming_load + delta) : prev,
+    );
+  }, []);
 
   const showError = useCallback((message: string) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -142,8 +160,9 @@ export default function Home() {
           console.error("Failed to fetch data:", error);
         })
         .finally(() => setLoading(false));
+      refreshForecast();
     }
-  }, [isAuthenticated, viewScope, dates, delegation]);
+  }, [isAuthenticated, viewScope, dates, delegation, refreshForecast]);
 
   // Handle scrolling to newly added items
   useEffect(() => {
@@ -484,6 +503,10 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Capacity widget — shown when the dates feature is active and
+          we have enough history to forecast. */}
+      {dates && <CapacityDashboard forecast={forecast} />}
+
       {/* Planned view banner */}
       {dates && viewScope === "planned" && (
         <div className="flex items-center justify-between rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-700 border border-sky-200">
@@ -817,6 +840,7 @@ export default function Home() {
                   : editingItem.assignee_notes,
               project_id: v.project_id ?? null,
               project: selectedProject ?? null,
+              effort_score: v.effort_score ?? editingItem.effort_score,
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               recurrence_rule: v.recurrence_rule ?? null,
@@ -833,11 +857,20 @@ export default function Home() {
             setAssignedItems(updater);
             setDelegatedItems(updater);
 
+            // Optimistically shift the capacity gauge by the delta in
+            // this item's load contribution (covers effort, due_date,
+            // and status changes in one shot — all feed the same filter).
+            const loadDelta =
+              loadContribution(optimisticUpdate) -
+              loadContribution(editingItem);
+            adjustForecast(loadDelta);
+
             updateItem(editingItem.id, {
               title: v.title,
               description: v.description || null,
               assignee_notes: v.assignee_notes,
               project_id: v.project_id,
+              effort_score: v.effort_score,
               scheduled_date: v.scheduled_date,
               due_date: v.due_date,
               recurrence_rule: v.recurrence_rule,
@@ -851,6 +884,7 @@ export default function Home() {
               setItems(revert);
               setAssignedItems(revert);
               setDelegatedItems(revert);
+              adjustForecast(-loadDelta);
               showError("Failed to update task. Changes reverted.");
             });
           } else {
@@ -868,6 +902,7 @@ export default function Home() {
               description: v.description || null,
               status: "todo",
               position: items.length,
+              effort_score: v.effort_score ?? 1,
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               completed_at: null,
@@ -899,6 +934,9 @@ export default function Home() {
               return [...prev, optimisticItem];
             });
 
+            const newLoad = loadContribution(optimisticItem);
+            adjustForecast(newLoad);
+
             // Set the item to scroll to
             setScrollToItemId(tempId);
 
@@ -909,6 +947,7 @@ export default function Home() {
               status: "todo",
               project_id: v.project_id,
               position: items.length,
+              effort_score: v.effort_score,
               scheduled_date: v.scheduled_date,
               due_date: v.due_date,
               recurrence_rule: v.recurrence_rule,
@@ -929,6 +968,7 @@ export default function Home() {
               .catch((error) => {
                 console.error("Failed to create item:", error);
                 setItems((prev) => prev.filter((item) => item.id !== tempId));
+                adjustForecast(-newLoad);
                 showError("Failed to create task. Please try again.");
               });
           }

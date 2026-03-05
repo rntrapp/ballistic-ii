@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FavouriteController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\VelocityForecastController;
 use App\Http\Controllers\ConnectionController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\NotificationController;
@@ -68,6 +69,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::apiResource('projects', ProjectController::class);
     Route::post('projects/{project}/archive', [ProjectController::class, 'archive']);
     Route::post('projects/{project}/restore', [ProjectController::class, 'restore']);
+
+    // Velocity forecasting (capacity & burnout risk)
+    Route::get('velocity/forecast', VelocityForecastController::class);
 
     // Items (specific routes before resource to ensure proper matching)
     Route::post('items/reorder', [ItemController::class, 'reorder']);

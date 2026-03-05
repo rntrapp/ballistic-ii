@@ -52,6 +52,7 @@ export interface Item {
   assignee_notes: string | null;
   status: Status;
   position: number;
+  effort_score: number;
   scheduled_date: string | null;
   due_date: string | null;
   completed_at: string | null;
@@ -99,6 +100,20 @@ export interface AuthResponse {
 export interface ValidationError {
   message: string;
   errors: Record<string, string[]>;
+}
+
+export const EFFORT_SCORES = [1, 2, 3, 5, 8] as const;
+export type EffortScore = (typeof EFFORT_SCORES)[number];
+
+export interface VelocityForecast {
+  velocity: number;
+  std_dev: number;
+  capacity_upper: number;
+  upcoming_load: number;
+  burnout_risk: boolean;
+  probability_of_success: number;
+  weekly_history: number[];
+  sample_weeks: number;
 }
 
 export type RecurrencePreset =
