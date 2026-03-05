@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\EffortScore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +32,7 @@ final class Item extends Model
         'assignee_notes',
         'status',
         'position',
+        'effort_score',
         'scheduled_date',
         'due_date',
         'completed_at',
@@ -41,6 +43,7 @@ final class Item extends Model
 
     protected $casts = [
         'position' => 'integer',
+        'effort_score' => EffortScore::class,
         'scheduled_date' => 'date',
         'due_date' => 'date',
         'completed_at' => 'datetime',

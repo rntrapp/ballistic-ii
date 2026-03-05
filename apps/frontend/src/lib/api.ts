@@ -1,4 +1,5 @@
 import type {
+  EffortScore,
   Item,
   ItemScope,
   Project,
@@ -6,6 +7,7 @@ import type {
   User,
   UserLookup,
   NotificationsResponse,
+  VelocityForecast,
 } from "@/types";
 import { getAuthHeaders, clearToken } from "./auth";
 
@@ -174,6 +176,7 @@ export async function createItem(payload: {
   status: Status;
   project_id?: string | null;
   position?: number;
+  effort_score?: EffortScore;
   scheduled_date?: string | null;
   due_date?: string | null;
   recurrence_rule?: string | null;
@@ -189,6 +192,7 @@ export async function createItem(payload: {
       status: payload.status,
       project_id: payload.project_id || null,
       position: payload.position ?? 0,
+      effort_score: payload.effort_score,
       scheduled_date: payload.scheduled_date || null,
       due_date: payload.due_date || null,
       recurrence_rule: payload.recurrence_rule || null,
@@ -232,6 +236,7 @@ export async function updateItem(
       | "assignee_notes"
       | "project_id"
       | "position"
+      | "effort_score"
       | "scheduled_date"
       | "due_date"
       | "recurrence_rule"
@@ -261,6 +266,34 @@ export async function deleteItem(id: string): Promise<{ ok: true }> {
 
   await handleResponse<void>(response);
   return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Velocity forecasting
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch the authenticated user's velocity forecast (weekly EMA, upcoming
+ * effort, success probability, burnout flag).
+ *
+ * @param alpha Optional smoothing factor override, 0 < alpha <= 1.
+ */
+export async function fetchVelocity(alpha?: number): Promise<VelocityForecast> {
+  const response = await fetch(
+    buildUrl("/api/velocity", {
+      alpha: alpha !== undefined ? String(alpha) : undefined,
+    }),
+    {
+      method: "GET",
+      headers: getAuthHeaders(),
+      cache: "no-store",
+    },
+  );
+
+  const payload = await handleResponse<
+    VelocityForecast | { data?: VelocityForecast }
+  >(response);
+  return extractData(payload);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

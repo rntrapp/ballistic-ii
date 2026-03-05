@@ -1,7 +1,18 @@
 "use client";
 
-import type { Item, Project, RecurrencePreset, UserLookup } from "@/types";
-import { RECURRENCE_PRESET_RULES } from "@/types";
+import type {
+  EffortScore,
+  Item,
+  Project,
+  RecurrencePreset,
+  UserLookup,
+} from "@/types";
+import {
+  DEFAULT_EFFORT_SCORE,
+  EFFORT_SCORES,
+  EFFORT_SCORE_LABELS,
+  RECURRENCE_PRESET_RULES,
+} from "@/types";
 import { useState } from "react";
 import { ProjectCombobox } from "./ProjectCombobox";
 import { AssignModal } from "./AssignModal";
@@ -21,6 +32,7 @@ type Props = {
     title: string;
     description?: string;
     project_id?: string | null;
+    effort_score: EffortScore;
     scheduled_date?: string | null;
     due_date?: string | null;
     recurrence_rule?: string | null;
@@ -54,6 +66,9 @@ export function ItemForm({
   const [projectId, setProjectId] = useState<string | null>(
     initial?.project_id ?? null,
   );
+  const [effortScore, setEffortScore] = useState<EffortScore>(
+    initial?.effort_score ?? DEFAULT_EFFORT_SCORE,
+  );
   const [scheduledDate, setScheduledDate] = useState<string>(
     initial?.scheduled_date ?? "",
   );
@@ -86,6 +101,7 @@ export function ItemForm({
           title,
           description: description || undefined,
           project_id: projectId,
+          effort_score: effortScore,
           scheduled_date: scheduledDate || null,
           due_date: dueDate || null,
           recurrence_rule: RECURRENCE_PRESET_RULES[recurrencePreset],
@@ -133,6 +149,40 @@ export function ItemForm({
 
         {showMoreSettings && (
           <div className="grid gap-3 mt-3 animate-fade-in">
+            {/* Effort score — drives the capacity dashboard */}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">
+                Effort
+              </label>
+              <div
+                className="flex gap-1"
+                role="radiogroup"
+                aria-label="Effort score"
+              >
+                {EFFORT_SCORES.map((score) => (
+                  <button
+                    key={score}
+                    type="button"
+                    role="radio"
+                    aria-checked={effortScore === score}
+                    onClick={() => setEffortScore(score)}
+                    className={`flex-1 rounded-md px-2 py-2 text-sm font-medium transition-all duration-150 border ${
+                      effortScore === score
+                        ? "bg-[var(--blue)] text-white border-[var(--blue)]"
+                        : "bg-white text-slate-600 border-slate-300 hover:border-slate-400"
+                    }`}
+                    title={EFFORT_SCORE_LABELS[score]}
+                  >
+                    {score}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                {EFFORT_SCORE_LABELS[effortScore]} — {effortScore} point
+                {effortScore === 1 ? "" : "s"}.
+              </p>
+            </div>
+
             {/* Project selector */}
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">

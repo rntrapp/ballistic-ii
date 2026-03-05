@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Contracts\NotificationServiceInterface;
+use App\Enums\EffortScore;
 use App\Http\Requests\StoreItemRequest;
 use App\Http\Requests\UpdateItemRequest;
 use App\Http\Resources\ItemResource;
@@ -164,6 +165,7 @@ final class ItemController extends Controller
                 ...$validated,
                 'user_id' => Auth::id(),
                 'position' => $validated['position'] ?? 0,
+                'effort_score' => $validated['effort_score'] ?? EffortScore::default(),
             ]);
 
             if (! empty($tagIds)) {

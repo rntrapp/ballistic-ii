@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-03-05
+
+### Added
+
+#### Velocity Forecasting & Burnout Detection
+
+- **`effort_score` column**: New integer column on `items` (Fibonacci-scaled 1/2/3/5/8, default 1) with a **DB-level CHECK constraint** enforcing `effort_score IN (1, 2, 3, 5, 8)`. The CHECK is embedded inline in the `ADD COLUMN` statement via driver-aware raw SQL (SQLite cannot add CHECK via `ALTER TABLE ... ADD CONSTRAINT`, only at column-creation). Backed by the `EffortScore` int-enum with `Trivial` → `Epic` case labels, `default()`, `values()`, and `max()` helpers.
+- **Composite indexes for velocity queries**:
+  - `items_user_completed_idx` on `(user_id, completed_at)` — range scans for historical weekly aggregation
+  - `items_user_due_idx` on `(user_id, due_date)` — range scans for 7-day upcoming-effort summation
+- **`VelocityForecastingService`** (`final readonly`): Pure-SQL aggregation + BCMath predictive engine. No collection hydration — all effort totals are computed via `selectRaw(SUM(effort_score))`.
+  - `aggregateWeeklyEffort()` — buckets `SUM(effort_score)` by ISO week (Monday-start) over a 26-week lookback, zero-fills gaps. Driver-aware week-start SQL via `match` expression (SQLite `(dow+6)%7` trick / PostgreSQL `DATE_TRUNC` / MySQL `DATE_SUB(WEEKDAY)`).
+  - `exponentialMovingAverage()` — textbook EMA with `EMA_0 = X_0` seeding (no zero-bias). All arithmetic via `bcmul`/`bcadd`/`bcsub` at `BCSCALE=12`, output rounded to 4 dp.
+  - `sumUpcomingEffort()` — single `SUM(effort_score)` over the half-open window `due_date ∈ [today, today+7d)` (exactly 7 calendar days) excluding `done`/`wontdo`.
+  - `calculateSuccessProbability()` — linear-decay model: `load ≤ 1 → p=1`; `load > 1 → p = max(0, 2 − load)`. BCMath `bcdiv` for the load ratio.
+  - `isBurnoutRisk()` — `bccomp(upcoming, ema) > 0` (strict-inequality burnout check, no float drift).
+  - `forecast()` — orchestrates all of the above into a single `VelocityForecast` DTO.
+- **`GET /api/velocity` endpoint**: `VelocityController` (invokable, `final`). Returns `weekly_velocity_ema` (string, 4 dp), `upcoming_effort` (int), `success_probability` (string, 4 dp), `burnout_risk` (bool), `alpha`, `history_weeks`, and the full `weekly_history` series. Accepts optional `?alpha=` query param validated as `numeric|gt:0|lte:1`.
+- **`StoreItemRequest` / `UpdateItemRequest`**: Accept `effort_score` validated against `Rule::in(EffortScore::values())`.
+- **`ItemResource`**: Exposes `effort_score` in all item payloads.
+- **`ItemFactory`**: Randomises `effort_score` across all Fibonacci values.
+- **55 new tests**:
+  - `VelocityForecastingServiceTest` (Unit) — isolated EMA math, BCMath precision assertions, ISO-week bucketing edge cases, zero-fill, burnout threshold boundaries, linear-decay probability curve, multi-user isolation, scientific-notation alpha canonicalisation, 7-day horizon boundary (today+6 included, today+7 excluded).
+  - `VelocityTest` (Feature) — HTTP-level acceptance tests including the "10 pts/week + 25 pts due → burnout risk" criterion, auth guard, alpha validation (decimal + scientific notation), precision-stability assertions, and 4 DB-level CHECK-constraint tests verifying the schema rejects non-Fibonacci values (0, 4, 13) even when application-layer validation is bypassed via raw `DB::table()` writes, while permitting every valid enum value.
+
+### Changed
+
+- **`ItemController::store()`**: Explicitly sets `effort_score` to `EffortScore::default()` when omitted so the in-memory model reflects the DB default without a `refresh()` round-trip.
+
+### Fixed
+
+- **7-day horizon off-by-one**: `sumUpcomingEffort()` used `due_date <= today+7` (closed interval), returning **8** calendar days instead of 7. Fixed to half-open `[today, today+7)` via `due_date < $now->addDays(7)->startOfDay()`, so the window is exactly today through today+6 inclusive. Frontend `velocity.ts` mirror fixed identically (`>= horizonStr` exclusion). Regression test `test_sum_upcoming_effort_horizon_is_exactly_seven_days` asserts today+6 is included and today+7 is excluded.
+- **Scientific-notation `alpha` crashed BCMath**: Laravel's `'numeric'` validator accepts scientific notation (`2e-1`, `1E-2`) but BCMath throws `ValueError` on anything outside `[+-]?[0-9]*\.?[0-9]+`. `normaliseAlpha()` now canonicalises the input via locale-insensitive `sprintf('%.12F', (float) $alpha)` before handing off to `bcadd`/`bcmul`. Since `alpha ∈ (0, 1]`, IEEE 754 double precision (≈15 sigfigs) is lossless at 12 dp. Covered by 3 new tests (`?alpha=2e-1` → `0.2000`, `?alpha=1E-2` → `0.0100`, plus a unit test proving `"0.2"` and `"2e-1"` yield identical EMAs).
+- **Vite manifest in test suite**: Built the admin-panel Vite assets (`sail npm ci && sail npm run build`) and generated the Wayfinder route/action stubs (`sail artisan wayfinder:generate`). This resolves 16 long-standing `ViteManifestNotFoundException` failures across `AdminDashboardTest`, `Auth\*`, `DashboardTest`, `Settings\*` — all Blade views that use `@vite()` directives. Full suite now: **330 passed / 0 failed (1015 assertions)**.
+
 ## [0.15.0] - 2026-02-08
 
 ### Added

@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { useRouter } from "next/navigation";
-import type { Item, ItemScope, Project } from "@/types";
+import type { Item, ItemScope, Project, VelocityForecast } from "@/types";
+import { DEFAULT_EFFORT_SCORE } from "@/types";
 import {
   fetchItems,
   createItem,
@@ -11,13 +12,20 @@ import {
   reorderItems,
   fetchProjects,
   createProject,
+  fetchVelocity,
 } from "@/lib/api";
+import {
+  calculateSuccessProbability,
+  isBurnoutRisk,
+  sumUpcomingEffort,
+} from "@/lib/velocity";
 import { ItemRow } from "@/components/ItemRow";
 import { EmptyState } from "@/components/EmptyState";
 import { SplashScreen } from "@/components/SplashScreen";
 import { SettingsModal } from "@/components/SettingsModal";
 import { NotesModal } from "@/components/NotesModal";
 import { EditItemModal } from "@/components/EditItemModal";
+import { CapacityDashboard } from "@/components/CapacityDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 
 function normaliseItemResponse(payload: Item | { data?: Item }): Item {
@@ -96,6 +104,9 @@ export default function Home() {
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [serverVelocity, setServerVelocity] = useState<VelocityForecast | null>(
+    null,
+  );
   const { dates, delegation } = useFeatureFlags();
 
   const showError = useCallback((message: string) => {
@@ -110,6 +121,20 @@ export default function Home() {
       setViewScope("active");
     }
   }, [dates, viewScope]);
+
+  // Fetch the canonical velocity forecast. Runs once after auth and again on
+  // demand via refreshVelocity() after item mutations settle — the local
+  // optimistic derivation covers the gap so the chart never blanks.
+  const refreshVelocity = useCallback(() => {
+    if (!isAuthenticated || !dates) return;
+    fetchVelocity()
+      .then(setServerVelocity)
+      .catch((err) => console.error("Failed to fetch velocity:", err));
+  }, [isAuthenticated, dates]);
+
+  useEffect(() => {
+    refreshVelocity();
+  }, [refreshVelocity]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -231,6 +256,29 @@ export default function Home() {
 
   // Sort my tasks by urgency (only when dates feature is enabled)
   const sortedItems = dates ? sortByUrgency(items) : items;
+
+  // Optimistic velocity forecast. The server's EMA + history are
+  // authoritative (derived from the full completed-items table); upcoming
+  // effort, success probability, and burnout are re-derived client-side on
+  // every item-array change so the chart shifts the instant a user bumps an
+  // effort score — before any network I/O completes (Reactivity criterion).
+  const displayedForecast = useMemo<VelocityForecast | null>(() => {
+    if (!dates || !serverVelocity) return serverVelocity;
+
+    const pool = [...items, ...assignedItems, ...delegatedItems];
+    const now = new Date();
+    const upcoming = sumUpcomingEffort(pool, now);
+    // Keep the server's EMA as a decimal string — it is parsed straight
+    // to BigInt fixed-point inside the velocity helpers, never to a float.
+    const capacity = serverVelocity.weekly_velocity_ema;
+
+    return {
+      ...serverVelocity,
+      upcoming_effort: upcoming,
+      success_probability: calculateSuccessProbability(capacity, upcoming),
+      burnout_risk: isBurnoutRisk(capacity, upcoming),
+    };
+  }, [dates, items, assignedItems, delegatedItems, serverVelocity]);
 
   // Apply project filter client-side
   const filteredItems = filterProjectId
@@ -483,6 +531,24 @@ export default function Home() {
           </button>
         </div>
       </header>
+
+      {/* Capacity dashboard — only relevant when due dates are enabled */}
+      {dates && (
+        <CapacityDashboard
+          forecast={
+            displayedForecast ?? {
+              weekly_velocity_ema: "0.0000",
+              upcoming_effort: 0,
+              success_probability: "1.0000",
+              burnout_risk: false,
+              alpha: "0.2000",
+              history_weeks: 0,
+              weekly_history: [],
+            }
+          }
+          loading={serverVelocity === null}
+        />
+      )}
 
       {/* Planned view banner */}
       {dates && viewScope === "planned" && (
@@ -817,6 +883,7 @@ export default function Home() {
                   : editingItem.assignee_notes,
               project_id: v.project_id ?? null,
               project: selectedProject ?? null,
+              effort_score: v.effort_score,
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               recurrence_rule: v.recurrence_rule ?? null,
@@ -838,21 +905,24 @@ export default function Home() {
               description: v.description || null,
               assignee_notes: v.assignee_notes,
               project_id: v.project_id,
+              effort_score: v.effort_score,
               scheduled_date: v.scheduled_date,
               due_date: v.due_date,
               recurrence_rule: v.recurrence_rule,
               recurrence_strategy:
                 (v.recurrence_strategy as Item["recurrence_strategy"]) ?? null,
               assignee_id: v.assignee_id,
-            }).catch((error) => {
-              console.error("Failed to update item:", error);
-              const revert = (prev: Item[]) =>
-                prev.map((i) => (i.id === editingItem.id ? editingItem : i));
-              setItems(revert);
-              setAssignedItems(revert);
-              setDelegatedItems(revert);
-              showError("Failed to update task. Changes reverted.");
-            });
+            })
+              .then(refreshVelocity)
+              .catch((error) => {
+                console.error("Failed to update item:", error);
+                const revert = (prev: Item[]) =>
+                  prev.map((i) => (i.id === editingItem.id ? editingItem : i));
+                setItems(revert);
+                setAssignedItems(revert);
+                setDelegatedItems(revert);
+                showError("Failed to update task. Changes reverted.");
+              });
           } else {
             // Create new item
             const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -868,6 +938,7 @@ export default function Home() {
               description: v.description || null,
               status: "todo",
               position: items.length,
+              effort_score: v.effort_score ?? DEFAULT_EFFORT_SCORE,
               scheduled_date: v.scheduled_date ?? null,
               due_date: v.due_date ?? null,
               completed_at: null,
@@ -909,6 +980,7 @@ export default function Home() {
               status: "todo",
               project_id: v.project_id,
               position: items.length,
+              effort_score: v.effort_score,
               scheduled_date: v.scheduled_date,
               due_date: v.due_date,
               recurrence_rule: v.recurrence_rule,
@@ -925,6 +997,7 @@ export default function Home() {
                     item.id === tempId ? resolvedItem : item,
                   );
                 });
+                refreshVelocity();
               })
               .catch((error) => {
                 console.error("Failed to create item:", error);
