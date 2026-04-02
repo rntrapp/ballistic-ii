@@ -70,4 +70,21 @@ final class NotificationController extends Controller
             'marked_count' => $count,
         ]);
     }
+
+    /**
+     * Dismiss (delete) a specific notification.
+     */
+    public function dismiss(Notification $notification): JsonResponse
+    {
+        if ((string) $notification->user_id !== (string) Auth::id()) {
+            return response()->json(['message' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        $notification->delete();
+
+        return response()->json([
+            'message' => 'Notification dismissed.',
+            'unread_count' => $this->notificationService->getUnreadCount(Auth::user()),
+        ]);
+    }
 }

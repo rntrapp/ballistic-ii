@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { FileText, LayoutGrid, Users } from 'lucide-react';
+import { FileText, LayoutGrid, ToggleRight, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const getMainNavItems = (isAdmin: boolean): NavItem[] => {
@@ -23,6 +23,11 @@ const getMainNavItems = (isAdmin: boolean): NavItem[] => {
                 title: 'Users',
                 href: '/admin/users',
                 icon: Users,
+            },
+            {
+                title: 'Feature Flags',
+                href: '/admin/feature-flags',
+                icon: ToggleRight,
             },
             {
                 title: 'Audit Logs',

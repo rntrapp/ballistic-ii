@@ -9,6 +9,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Services\RecurrenceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 final class ItemTest extends TestCase
@@ -140,6 +141,55 @@ final class ItemTest extends TestCase
             'title' => 'Updated Title',
             'status' => 'doing',
         ]);
+    }
+
+    public function test_marking_item_as_wontdo_sets_completed_at(): void
+    {
+        $user = User::factory()->create();
+        $item = Item::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'todo',
+            'completed_at' => null,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->patchJson("/api/items/{$item->id}", [
+                'status' => 'wontdo',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonFragment([
+                'status' => 'wontdo',
+            ]);
+
+        $item->refresh();
+
+        $this->assertNotNull($item->completed_at);
+    }
+
+    public function test_switching_from_done_to_wontdo_refreshes_completed_at(): void
+    {
+        $user = User::factory()->create();
+        $item = Item::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'done',
+            'completed_at' => Carbon::parse('2026-03-09 11:00:00'),
+            'updated_at' => Carbon::parse('2026-03-09 11:00:00'),
+        ]);
+
+        $response = $this->actingAs($user)
+            ->patchJson("/api/items/{$item->id}", [
+                'status' => 'wontdo',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonFragment([
+                'status' => 'wontdo',
+            ]);
+
+        $item->refresh();
+
+        $this->assertTrue($item->completed_at->greaterThan(Carbon::parse('2026-03-09 11:00:00')));
     }
 
     public function test_user_can_delete_their_item(): void
@@ -560,7 +610,7 @@ final class ItemTest extends TestCase
         $response->assertStatus(401);
     }
 
-    public function test_reorder_renumbers_non_submitted_items(): void
+    public function test_reorder_only_updates_active_items(): void
     {
         $user = User::factory()->create();
 
@@ -586,6 +636,8 @@ final class ItemTest extends TestCase
             'status' => 'wontdo',
             'position' => 3,
         ]);
+        $doneOriginalUpdatedAt = $doneItem->updated_at;
+        $wontdoOriginalUpdatedAt = $wontdoItem->updated_at;
 
         // Reorder only the active items (swap A and B)
         $response = $this->actingAs($user)->postJson('/api/items/reorder', [
@@ -601,21 +653,45 @@ final class ItemTest extends TestCase
         $this->assertDatabaseHas('items', ['id' => $activeB->id, 'position' => 0]);
         $this->assertDatabaseHas('items', ['id' => $activeA->id, 'position' => 1]);
 
-        // Non-submitted items are renumbered above the active range
-        $donePosition = Item::find($doneItem->id)->position;
-        $wontdoPosition = Item::find($wontdoItem->id)->position;
+        // Completed/cancelled items are left untouched, including updated_at
+        $this->assertDatabaseHas('items', ['id' => $doneItem->id, 'position' => 2]);
+        $this->assertDatabaseHas('items', ['id' => $wontdoItem->id, 'position' => 3]);
+        $this->assertTrue($doneOriginalUpdatedAt->equalTo($doneItem->fresh()->updated_at));
+        $this->assertTrue($wontdoOriginalUpdatedAt->equalTo($wontdoItem->fresh()->updated_at));
+    }
 
-        $this->assertGreaterThanOrEqual(2, $donePosition);
-        $this->assertGreaterThanOrEqual(2, $wontdoPosition);
-        $this->assertNotEquals($donePosition, $wontdoPosition);
+    public function test_reorder_ignores_submitted_completed_or_cancelled_items(): void
+    {
+        $user = User::factory()->create();
 
-        // All four items have distinct positions
-        $positions = Item::where('user_id', $user->id)
-            ->pluck('position')
-            ->toArray();
+        $todoItem = Item::factory()->todo()->create([
+            'user_id' => $user->id,
+            'title' => 'Todo Item',
+            'position' => 0,
+        ]);
+        $doneItem = Item::factory()->done()->create([
+            'user_id' => $user->id,
+            'title' => 'Done Item',
+            'position' => 1,
+        ]);
+        $wontdoItem = Item::factory()->wontdo()->create([
+            'user_id' => $user->id,
+            'title' => 'Wontdo Item',
+            'position' => 2,
+        ]);
 
-        $this->assertCount(4, $positions);
-        $this->assertCount(4, array_unique($positions));
+        $response = $this->actingAs($user)->postJson('/api/items/reorder', [
+            'items' => [
+                ['id' => $doneItem->id, 'position' => 0],
+                ['id' => $wontdoItem->id, 'position' => 1],
+            ],
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('items', ['id' => $todoItem->id, 'position' => 0]);
+        $this->assertDatabaseHas('items', ['id' => $doneItem->id, 'position' => 1]);
+        $this->assertDatabaseHas('items', ['id' => $wontdoItem->id, 'position' => 2]);
     }
 
     // --- Recurrence BYDAY Tests ---
@@ -837,5 +913,53 @@ final class ItemTest extends TestCase
             'id' => $template->id,
             'status' => 'todo',
         ]);
+    }
+
+    public function test_no_project_filter_returns_only_items_without_project(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->for($user)->create();
+
+        $withProject = Item::factory()->todo()->for($user)->create([
+            'project_id' => $project->id,
+            'title' => 'Has project',
+        ]);
+        $withoutProject = Item::factory()->todo()->for($user)->create([
+            'project_id' => null,
+            'title' => 'No project',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/items?no_project=1');
+
+        $response->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id')->toArray();
+        $this->assertContains((string) $withoutProject->id, $ids);
+        $this->assertNotContains((string) $withProject->id, $ids);
+    }
+
+    public function test_no_project_filter_takes_precedence_over_project_id(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->for($user)->create();
+
+        Item::factory()->todo()->for($user)->create([
+            'project_id' => $project->id,
+            'title' => 'Has project',
+        ]);
+        $withoutProject = Item::factory()->todo()->for($user)->create([
+            'project_id' => null,
+            'title' => 'No project',
+        ]);
+
+        // When both filters are sent, no_project should take precedence
+        $response = $this->actingAs($user)
+            ->getJson("/api/items?no_project=1&project_id={$project->id}");
+
+        $response->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id')->toArray();
+        $this->assertContains((string) $withoutProject->id, $ids);
     }
 }

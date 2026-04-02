@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useContext } from "react";
+import { useCallback, useContext, useMemo } from "react";
 import { AuthContext } from "@/contexts/AuthContext";
 
 interface FeatureFlags {
@@ -15,20 +15,23 @@ const DEFAULTS: FeatureFlags = {
   ai_assistant: false,
 };
 
-export function useFeatureFlags() {
-  // Use useContext directly instead of useAuth to avoid throwing in tests
-  const auth = useContext(AuthContext);
+const AVAILABLE_DEFAULTS: FeatureFlags = {
+  dates: true,
+  delegation: true,
+  ai_assistant: true,
+};
 
-  // In test environment or when AuthProvider is not available, use defaults
+export function useFeatureFlags() {
+  const auth = useContext(AuthContext);
   const user = auth?.user ?? null;
   const updateUser = useMemo(
     () => auth?.updateUser ?? (async () => {}),
     [auth?.updateUser],
   );
 
-  // Get flags from user object (no separate fetch needed)
-  const flags = useMemo(() => {
+  const userFlags = useMemo(() => {
     if (!user?.feature_flags) return DEFAULTS;
+
     return {
       dates: user.feature_flags.dates ?? false,
       delegation: user.feature_flags.delegation ?? false,
@@ -36,11 +39,18 @@ export function useFeatureFlags() {
     };
   }, [user?.feature_flags]);
 
+  const available = useMemo(() => {
+    if (!user?.available_feature_flags) return AVAILABLE_DEFAULTS;
+
+    return {
+      dates: user.available_feature_flags.dates ?? true,
+      delegation: user.available_feature_flags.delegation ?? true,
+      ai_assistant: user.available_feature_flags.ai_assistant ?? true,
+    };
+  }, [user?.available_feature_flags]);
+
   const setFlag = useCallback(
-    async (flag: "dates" | "delegation" | "ai_assistant", value: boolean) => {
-      // Send only the changed key — the server merges it with the stored flags,
-      // which avoids a multi-tab race condition where two concurrent updates
-      // would overwrite each other's changes.
+    async (flag: keyof FeatureFlags, value: boolean) => {
       try {
         await updateUser({ feature_flags: { [flag]: value } });
       } catch (error) {
@@ -52,9 +62,11 @@ export function useFeatureFlags() {
   );
 
   return {
-    dates: flags.dates,
-    delegation: flags.delegation,
-    aiAssistant: flags.ai_assistant,
+    dates: userFlags.dates && available.dates,
+    delegation: userFlags.delegation && available.delegation,
+    aiAssistant: userFlags.ai_assistant && available.ai_assistant,
+    userFlags,
+    available,
     setFlag,
     loaded: user !== null,
   };

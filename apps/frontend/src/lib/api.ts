@@ -1,4 +1,5 @@
 import type {
+  ActivityLogItem,
   Item,
   ItemScope,
   McpToken,
@@ -9,6 +10,8 @@ import type {
   NotificationsResponse,
 } from "@/types";
 import { getAuthHeaders, clearToken } from "./auth";
+
+export type { ActivityLogItem } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
@@ -105,7 +108,7 @@ export async function fetchUser(): Promise<User> {
 }
 
 export type UserUpdatePayload = Partial<
-  Pick<User, "name" | "email" | "phone" | "notes"> & {
+  Pick<User, "name" | "email" | "phone" | "notes" | "bio" | "avatar_url"> & {
     // feature_flags accepts a partial update — the server merges it with stored flags.
     feature_flags: Partial<NonNullable<User["feature_flags"]>> | null;
   }
@@ -484,6 +487,57 @@ export async function markAllNotificationsAsRead(): Promise<{
   });
 
   return handleResponse<{ message: string; marked_count: number }>(response);
+}
+
+/**
+ * Dismiss (delete) a specific notification.
+ */
+export async function dismissNotification(
+  notificationId: string,
+): Promise<{ message: string; unread_count: number }> {
+  const response = await fetch(
+    buildUrl(`/api/notifications/${notificationId}`),
+    {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    },
+  );
+
+  return handleResponse<{ message: string; unread_count: number }>(response);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Activity Log
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CursorPaginatedResponse<T> {
+  data: T[];
+  meta: {
+    next_cursor: string | null;
+    prev_cursor: string | null;
+    per_page: number;
+    path: string;
+  };
+}
+
+/**
+ * Fetch cursor-paginated activity log (item history) for the authenticated user.
+ */
+export async function fetchActivityLog(
+  cursor?: string,
+): Promise<CursorPaginatedResponse<ActivityLogItem>> {
+  const params: Record<string, string | undefined> = {
+    per_page: "20",
+    cursor,
+  };
+
+  const response = await fetch(buildUrl("/api/activity-log", params), {
+    method: "GET",
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+
+  return handleResponse<CursorPaginatedResponse<ActivityLogItem>>(response);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

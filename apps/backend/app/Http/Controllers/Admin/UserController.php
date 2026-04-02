@@ -182,23 +182,6 @@ final class UserController extends Controller
             abort(Response::HTTP_FORBIDDEN, 'You cannot delete your own account.');
         }
 
-        // Log the deletion (preserve actor info for audit trail)
-        AuditLog::create([
-            'user_id' => $request->user()->id,
-            'action' => 'user_deleted',
-            'resource_type' => 'user',
-            'resource_id' => $user->id,
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'status' => 'success',
-            'metadata' => [
-                'actor_name' => $request->user()->name,
-                'actor_email' => $request->user()->email,
-                'deleted_user_email' => $user->email,
-                'deleted_user_name' => $user->name,
-            ],
-        ]);
-
         $user->delete();
 
         // Return 204 for API requests

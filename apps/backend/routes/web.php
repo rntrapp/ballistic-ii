@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\FeatureFlagController;
 use App\Http\Controllers\Admin\HealthController;
 use App\Http\Controllers\Admin\UserController;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,10 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
 
         // Health dashboard
         Route::get('health', HealthController::class)->name('health.index');
+
+        // Feature flags
+        Route::get('feature-flags', [FeatureFlagController::class, 'index'])->name('feature-flags.index');
+        Route::put('feature-flags', [FeatureFlagController::class, 'update'])->name('feature-flags.update');
 
         // Audit logs
         Route::get('audit-logs', AuditLogController::class)->name('audit-logs.index');

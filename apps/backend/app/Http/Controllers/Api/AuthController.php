@@ -8,6 +8,7 @@ use App\Auth\TokenAbility;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,6 +103,9 @@ final class AuthController extends Controller
         if ($currentToken !== null) {
             $currentToken->delete();
         }
+
+        // Fire Logout event so AuditAuthEvents listener captures the action
+        event(new Logout('sanctum', $user));
 
         return response()->json([
             'message' => 'Logged out successfully',

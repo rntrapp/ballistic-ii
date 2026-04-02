@@ -13,7 +13,7 @@ final class ItemPolicy
      * Fields that an assignee is allowed to update.
      * All other fields can only be updated by the owner.
      */
-    public const ASSIGNEE_ALLOWED_FIELDS = ['status', 'assignee_notes'];
+    public const ASSIGNEE_ALLOWED_FIELDS = ['status', 'description', 'assignee_notes'];
 
     /**
      * Determine whether the user can view any models.
@@ -56,7 +56,7 @@ final class ItemPolicy
     /**
      * Check if the user (as assignee) is allowed to update the given fields.
      *
-     * Assignees may update status and assignee_notes unconditionally.
+     * Assignees may update status, description, and assignee_notes unconditionally.
      * They may also set assignee_id to null (self-unassignment / rejection),
      * but cannot reassign the task to another user.
      *

@@ -14,6 +14,46 @@ function Harness() {
   );
 }
 
+function FlagsDisplay() {
+  const { dates, delegation, aiAssistant, userFlags, available } =
+    useFeatureFlags();
+
+  return (
+    <div>
+      <span data-testid="eff-dates">{String(dates)}</span>
+      <span data-testid="eff-delegation">{String(delegation)}</span>
+      <span data-testid="eff-ai">{String(aiAssistant)}</span>
+      <span data-testid="user-dates">{String(userFlags.dates)}</span>
+      <span data-testid="user-delegation">{String(userFlags.delegation)}</span>
+      <span data-testid="user-ai">{String(userFlags.ai_assistant)}</span>
+      <span data-testid="avail-dates">{String(available.dates)}</span>
+      <span data-testid="avail-delegation">
+        {String(available.delegation)}
+      </span>
+      <span data-testid="avail-ai">{String(available.ai_assistant)}</span>
+    </div>
+  );
+}
+
+function renderWithAuth(mockUser: User) {
+  return render(
+    <AuthContext.Provider
+      value={{
+        user: mockUser,
+        isAuthenticated: true,
+        isLoading: false,
+        login: jest.fn(),
+        register: jest.fn(),
+        logout: jest.fn(),
+        refreshUser: jest.fn(),
+        updateUser: jest.fn(),
+      }}
+    >
+      <FlagsDisplay />
+    </AuthContext.Provider>,
+  );
+}
+
 describe("useFeatureFlags", () => {
   test("sends only the changed flag key to avoid multi-tab race conditions", async () => {
     const updateUser = jest.fn().mockResolvedValue(undefined);
@@ -25,9 +65,16 @@ describe("useFeatureFlags", () => {
       email: "test@example.com",
       phone: null,
       notes: null,
+      bio: null,
+      avatar_url: null,
       feature_flags: {
         dates: false,
         delegation: false,
+        ai_assistant: true,
+      },
+      available_feature_flags: {
+        dates: true,
+        delegation: true,
         ai_assistant: true,
       },
       email_verified_at: "2025-01-01T00:00:00Z",
@@ -55,10 +102,144 @@ describe("useFeatureFlags", () => {
     await user.click(screen.getByRole("button", { name: "Toggle dates" }));
 
     await waitFor(() => {
-      // Only the changed key is sent; server-side merge handles the rest.
       expect(updateUser).toHaveBeenCalledWith({
         feature_flags: { dates: true },
       });
     });
+  });
+
+  test("effective false when global disabled but user enabled", () => {
+    const mockUser: User = {
+      id: "user-1",
+      name: "Test",
+      email: "test@example.com",
+      phone: null,
+      notes: null,
+      bio: null,
+      avatar_url: null,
+      feature_flags: { dates: true, delegation: true, ai_assistant: true },
+      available_feature_flags: {
+        dates: false,
+        delegation: true,
+        ai_assistant: true,
+      },
+      email_verified_at: null,
+      created_at: "2025-01-01T00:00:00Z",
+      updated_at: "2025-01-01T00:00:00Z",
+    };
+
+    renderWithAuth(mockUser);
+
+    expect(screen.getByTestId("eff-dates")).toHaveTextContent("false");
+    expect(screen.getByTestId("eff-delegation")).toHaveTextContent("true");
+    expect(screen.getByTestId("eff-ai")).toHaveTextContent("true");
+  });
+
+  test("effective false when user disabled but global enabled", () => {
+    const mockUser: User = {
+      id: "user-1",
+      name: "Test",
+      email: "test@example.com",
+      phone: null,
+      notes: null,
+      bio: null,
+      avatar_url: null,
+      feature_flags: { dates: false, delegation: true, ai_assistant: false },
+      available_feature_flags: {
+        dates: true,
+        delegation: true,
+        ai_assistant: true,
+      },
+      email_verified_at: null,
+      created_at: "2025-01-01T00:00:00Z",
+      updated_at: "2025-01-01T00:00:00Z",
+    };
+
+    renderWithAuth(mockUser);
+
+    expect(screen.getByTestId("eff-dates")).toHaveTextContent("false");
+    expect(screen.getByTestId("eff-delegation")).toHaveTextContent("true");
+    expect(screen.getByTestId("eff-ai")).toHaveTextContent("false");
+  });
+
+  test("effective true only when both user and global are true", () => {
+    const mockUser: User = {
+      id: "user-1",
+      name: "Test",
+      email: "test@example.com",
+      phone: null,
+      notes: null,
+      bio: null,
+      avatar_url: null,
+      feature_flags: { dates: true, delegation: true, ai_assistant: true },
+      available_feature_flags: {
+        dates: true,
+        delegation: true,
+        ai_assistant: true,
+      },
+      email_verified_at: null,
+      created_at: "2025-01-01T00:00:00Z",
+      updated_at: "2025-01-01T00:00:00Z",
+    };
+
+    renderWithAuth(mockUser);
+
+    expect(screen.getByTestId("eff-dates")).toHaveTextContent("true");
+    expect(screen.getByTestId("eff-delegation")).toHaveTextContent("true");
+    expect(screen.getByTestId("eff-ai")).toHaveTextContent("true");
+  });
+
+  test("available defaults to all true when field missing", () => {
+    const mockUser: User = {
+      id: "user-1",
+      name: "Test",
+      email: "test@example.com",
+      phone: null,
+      notes: null,
+      bio: null,
+      avatar_url: null,
+      feature_flags: { dates: true, delegation: true, ai_assistant: true },
+      email_verified_at: null,
+      created_at: "2025-01-01T00:00:00Z",
+      updated_at: "2025-01-01T00:00:00Z",
+    };
+
+    renderWithAuth(mockUser);
+
+    expect(screen.getByTestId("avail-dates")).toHaveTextContent("true");
+    expect(screen.getByTestId("avail-delegation")).toHaveTextContent("true");
+    expect(screen.getByTestId("avail-ai")).toHaveTextContent("true");
+    expect(screen.getByTestId("eff-dates")).toHaveTextContent("true");
+    expect(screen.getByTestId("eff-ai")).toHaveTextContent("true");
+  });
+
+  test("userFlags reflects raw preference regardless of availability", () => {
+    const mockUser: User = {
+      id: "user-1",
+      name: "Test",
+      email: "test@example.com",
+      phone: null,
+      notes: null,
+      bio: null,
+      avatar_url: null,
+      feature_flags: { dates: true, delegation: false, ai_assistant: true },
+      available_feature_flags: {
+        dates: false,
+        delegation: false,
+        ai_assistant: false,
+      },
+      email_verified_at: null,
+      created_at: "2025-01-01T00:00:00Z",
+      updated_at: "2025-01-01T00:00:00Z",
+    };
+
+    renderWithAuth(mockUser);
+
+    expect(screen.getByTestId("user-dates")).toHaveTextContent("true");
+    expect(screen.getByTestId("user-delegation")).toHaveTextContent("false");
+    expect(screen.getByTestId("user-ai")).toHaveTextContent("true");
+    expect(screen.getByTestId("eff-dates")).toHaveTextContent("false");
+    expect(screen.getByTestId("eff-delegation")).toHaveTextContent("false");
+    expect(screen.getByTestId("eff-ai")).toHaveTextContent("false");
   });
 });

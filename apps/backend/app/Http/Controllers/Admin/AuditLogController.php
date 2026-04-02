@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -18,29 +19,40 @@ final class AuditLogController extends Controller
      */
     public function __invoke(Request $request): InertiaResponse
     {
+        $validated = $request->validate([
+            'user_id' => ['nullable', 'uuid'],
+            'action' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'string', 'in:success,failed'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'per_page' => ['nullable', 'integer', 'min:10', 'max:100'],
+        ]);
+
         $query = AuditLog::query()
             ->with('user:id,name,email')
-            ->when($request->user_id, function (Builder $query, string $userId) {
+            ->when($validated['user_id'] ?? null, function (Builder $query, string $userId) {
                 $query->where('user_id', $userId);
             })
-            ->when($request->action, function (Builder $query, string $action) {
+            ->when($validated['action'] ?? null, function (Builder $query, string $action) {
                 $query->where('action', $action);
             })
-            ->when($request->status, function (Builder $query, string $status) {
+            ->when($validated['status'] ?? null, function (Builder $query, string $status) {
                 $query->where('status', $status);
             })
-            ->when($request->date_from, function (Builder $query, string $dateFrom) {
+            ->when($validated['date_from'] ?? null, function (Builder $query, string $dateFrom) {
                 $query->where('created_at', '>=', $dateFrom);
             })
-            ->when($request->date_to, function (Builder $query, string $dateTo) {
+            ->when($validated['date_to'] ?? null, function (Builder $query, string $dateTo) {
                 $query->where('created_at', '<=', $dateTo);
             })
             ->latest();
 
-        $logs = $query->paginate($request->per_page ?? 50)->withQueryString();
+        $logs = $query->paginate($validated['per_page'] ?? 50)->withQueryString();
 
-        // Get unique actions for filter dropdown
-        $actions = AuditLog::distinct()->pluck('action')->sort()->values();
+        // Cache unique actions for filter dropdown (busted every 60 seconds)
+        $actions = Cache::remember('audit_log_actions', 60, function () {
+            return AuditLog::distinct()->pluck('action')->sort()->values();
+        });
 
         return Inertia::render('admin/audit-logs/index', [
             'logs' => $logs,

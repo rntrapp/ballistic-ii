@@ -3,7 +3,7 @@
 import { cycleStatus } from "@/lib/status";
 import { updateStatus } from "@/lib/api";
 import type { Item } from "@/types";
-import { useOptimistic, startTransition } from "react";
+import { useOptimistic, startTransition, useEffect, useRef } from "react";
 import { StatusCircle } from "./StatusCircle";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
@@ -42,6 +42,8 @@ export function ItemRow({
   onError,
 }: Props) {
   const { dates, delegation } = useFeatureFlags();
+  const pendingStatusRef = useRef<Item["status"] | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [optimisticItem, addOptimistic] = useOptimistic(
     item,
@@ -57,47 +59,73 @@ export function ItemRow({
     }),
   );
 
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
   function onToggle() {
     const nextStatus = cycleStatus(optimisticItem.status);
 
     const completedAt =
-      nextStatus === "done"
+      nextStatus === "done" || nextStatus === "wontdo"
         ? new Date().toISOString()
-        : item.status === "done"
+        : optimisticItem.status === "done" || optimisticItem.status === "wontdo"
           ? null
-          : item.completed_at;
+          : optimisticItem.completed_at;
 
     // Update UI immediately (optimistic update)
     startTransition(() => {
       addOptimistic(nextStatus);
     });
 
-    // Update parent state with correct completed_at
-    onChange({
-      ...item,
-      status: nextStatus,
-      completed_at: completedAt,
+    // Update parent state immediately
+    onChange((current) => {
+      if (current.id !== item.id) return current;
+      return {
+        ...current,
+        status: nextStatus,
+        completed_at: completedAt,
+      };
     });
 
-    // Reconcile with server - merge authoritative timestamps
-    // without overwriting status (user may toggle again mid-flight)
-    updateStatus(item.id, nextStatus)
-      .then((serverItem) => {
-        onChange((current) => {
-          if (current.id !== item.id) return current;
-          if (current.status !== nextStatus) return current;
-          return {
-            ...current,
-            completed_at: serverItem.completed_at,
-            updated_at: serverItem.updated_at,
-          };
+    pendingStatusRef.current = nextStatus;
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      const statusToSend = pendingStatusRef.current;
+      if (!statusToSend) return;
+
+      updateStatus(item.id, statusToSend)
+        .then((serverItem) => {
+          onChange((current) => {
+            if (current.id !== item.id) return current;
+            if (current.status !== statusToSend) return current;
+            return {
+              ...current,
+              status: serverItem.status,
+              completed_at: serverItem.completed_at,
+              updated_at: serverItem.updated_at,
+            };
+          });
+        })
+        .catch((error) => {
+          console.error("Failed to update status:", error);
+          onChange(item);
+          onError("Failed to update status. Change reverted.");
+        })
+        .finally(() => {
+          if (pendingStatusRef.current === statusToSend) {
+            pendingStatusRef.current = null;
+          }
         });
-      })
-      .catch((error) => {
-        console.error("Failed to update status:", error);
-        onChange(item);
-        onError("Failed to update status. Change reverted.");
-      });
+    }, 3000);
   }
 
   function onMove(direction: "up" | "down" | "top") {
@@ -170,7 +198,7 @@ export function ItemRow({
       {/* Task details */}
       <div className="flex-1 min-w-0">
         <div
-          className={`flex items-center gap-1 font-medium transition-colors duration-200 ${isCompleted || isCancelled ? "text-slate-400 line-through" : "text-[var(--navy)]"}`}
+          className={`font-reading flex items-center gap-1 font-medium transition-colors duration-200 ${isCompleted || isCancelled ? "text-slate-400 line-through" : "text-[var(--navy)]"}`}
         >
           {optimisticItem.title}
           {dates &&
@@ -253,7 +281,7 @@ export function ItemRow({
         </div>
         {optimisticItem.description && (
           <div
-            className={`text-sm mt-1 transition-colors duration-200 ${isCompleted || isCancelled ? "text-slate-300" : "text-slate-500"}`}
+            className={`font-reading mt-1 text-sm transition-colors duration-200 ${isCompleted || isCancelled ? "text-slate-300" : "text-slate-500"}`}
           >
             {optimisticItem.description.length > 50
               ? `${optimisticItem.description.slice(0, 50)}...`
@@ -262,7 +290,7 @@ export function ItemRow({
         )}
         {delegation && optimisticItem.assignee_notes && (
           <div
-            className={`text-sm mt-1 italic transition-colors duration-200 ${isCompleted || isCancelled ? "text-slate-300" : "text-slate-400"}`}
+            className={`font-reading text-sm mt-1 italic transition-colors duration-200 ${isCompleted || isCancelled ? "text-slate-300" : "text-slate-400"}`}
           >
             <span className="text-xs font-medium not-italic text-slate-500">
               Note:{" "}
@@ -318,7 +346,7 @@ export function ItemRow({
       >
         {!isFirst && (
           <button
-            className="tap-target rounded-md bg-slate-100 px-2 py-1 text-slate-700 transition-all duration-200 hover:bg-slate-200 active:scale-95"
+            className="tap-target inline-flex size-8 min-h-8 min-w-8 flex-none items-center justify-center rounded-md bg-slate-100 text-slate-700 transition-all duration-200 hover:bg-slate-200 active:scale-95"
             onClick={() => onMove("top")}
             aria-label="Move to top"
           >
@@ -326,10 +354,23 @@ export function ItemRow({
           </button>
         )}
         <span
-          className="tap-target rounded-md bg-slate-100 px-2 py-1 text-slate-700 transition-all duration-200 hover:bg-slate-200 active:scale-95 cursor-grab"
+          className="tap-target inline-flex size-8 min-h-8 min-w-8 flex-none items-center justify-center rounded-md bg-slate-100 text-slate-500 transition-all duration-200 hover:bg-slate-200 hover:text-slate-700 active:scale-95 cursor-grab"
           aria-label="Drag to reorder"
         >
-          ☰
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="currentColor"
+            className="block"
+          >
+            <circle cx="8" cy="7" r="1.4" />
+            <circle cx="16" cy="7" r="1.4" />
+            <circle cx="8" cy="12" r="1.4" />
+            <circle cx="16" cy="12" r="1.4" />
+            <circle cx="8" cy="17" r="1.4" />
+            <circle cx="16" cy="17" r="1.4" />
+          </svg>
         </span>
       </div>
     </div>

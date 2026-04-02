@@ -19,8 +19,21 @@
 
   body {
     @apply bg-[var(--page-bg)] text-[var(--text)] antialiased;
+  }
+
+  .font-ui {
     font-family:
-      "Nunito",
+      var(--font-ui),
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+  }
+
+  .font-reading {
+    font-family:
+      var(--font-reading),
       -apple-system,
       BlinkMacSystemFont,
       "Segoe UI",

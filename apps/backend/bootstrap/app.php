@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // from routes/ai.php with prefix 'mcp', making the endpoint available at POST /mcp
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->trustProxies(at: '*');
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [

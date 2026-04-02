@@ -27,8 +27,8 @@ final class UpdateItemRequest extends FormRequest
     {
         return [
             'title' => ['sometimes', 'required', 'string', 'max:65535'],
-            'description' => ['nullable', 'string', 'max:65535'],
-            'assignee_notes' => ['nullable', 'string', 'max:65535'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:65535'],
+            'assignee_notes' => ['sometimes', 'nullable', 'string', 'max:65535'],
             'status' => ['sometimes', 'required', Rule::in(['todo', 'doing', 'done', 'wontdo'])],
             'project_id' => [
                 'nullable',
