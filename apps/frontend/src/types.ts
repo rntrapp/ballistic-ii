@@ -6,7 +6,13 @@ export interface User {
   email: string;
   phone: string | null;
   notes: string | null;
-  feature_flags?: {
+  bio: string | null;
+  avatar_url: string | null;
+  feature_flags: {
+    dates: boolean;
+    delegation: boolean;
+  };
+  available_feature_flags?: {
     dates: boolean;
     delegation: boolean;
   } | null;
@@ -69,6 +75,23 @@ export interface Item {
   tags?: Tag[];
   assignee?: UserLookup | null;
   owner?: UserLookup | null;
+}
+
+export interface ActivityLogItem {
+  id: string;
+  title: string;
+  status: Status;
+  is_assigned: boolean;
+  is_assigned_to_me: boolean;
+  is_delegated: boolean;
+  project: { id: string; name: string; color: string | null } | null;
+  assignee: UserLookup | null;
+  owner: UserLookup | null;
+  completed_by: { id: string | null; name: string | null } | null;
+  activity_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Notification {

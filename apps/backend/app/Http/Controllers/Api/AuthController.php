@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Auth\TokenAbility;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,7 +41,7 @@ final class AuthController extends Controller
         event(new Registered($user));
 
         $deviceName = $validated['device_name'] ?? 'api-token';
-        $token = $user->createToken($deviceName)->plainTextToken;
+        $token = $user->createToken($deviceName, [TokenAbility::Api->value])->plainTextToken;
 
         return response()->json([
             'message' => 'User registered successfully',
@@ -78,7 +80,7 @@ final class AuthController extends Controller
         // Create a new token for this device without revoking existing tokens
         // This enables multi-device login support
         $deviceName = $request->input('device_name', 'api-token');
-        $token = $user->createToken($deviceName)->plainTextToken;
+        $token = $user->createToken($deviceName, [TokenAbility::Api->value])->plainTextToken;
 
         return response()->json([
             'message' => 'Login successful',
@@ -101,6 +103,9 @@ final class AuthController extends Controller
         if ($currentToken !== null) {
             $currentToken->delete();
         }
+
+        // Fire Logout event so AuditAuthEvents listener captures the action
+        event(new Logout('sanctum', $user));
 
         return response()->json([
             'message' => 'Logged out successfully',

@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\Admin\StatsController as AdminStatsController;
+use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FavouriteController;
@@ -32,6 +33,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // User profile
     Route::get('/user', [UserController::class, 'show']);
     Route::patch('/user', [UserController::class, 'update']);
+    Route::put('/user/profile', [UserController::class, 'updateProfile']);
 
     // Favourite contacts (quick-pick for task assignment)
     Route::post('/favourites/{user}', [FavouriteController::class, 'toggle'])->middleware('throttle:user-search');
@@ -48,6 +50,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'dismiss']);
 
     // Push notifications (Web Push subscriptions)
     Route::get('/push/vapid-key', [PushSubscriptionController::class, 'vapidKey']);
@@ -77,10 +80,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // Tags
     Route::apiResource('tags', TagController::class);
 
+    // Activity log
+    Route::get('/activity-log', [ActivityLogController::class, 'index']);
+
     // Admin routes
     Route::prefix('admin')->middleware(['admin'])->group(function () {
         Route::apiResource('users', AdminUserController::class);
-        Route::get('stats', [AdminStatsController::class, 'index']);
-        Route::get('stats/user-activity', [AdminStatsController::class, 'userActivity']);
+        Route::get('settings/features', [AdminSettingsController::class, 'showFeatures']);
+        Route::put('settings/features', [AdminSettingsController::class, 'updateFeatures']);
     });
 });

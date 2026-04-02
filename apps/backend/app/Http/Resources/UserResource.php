@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\AppSetting;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,7 +23,13 @@ final class UserResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'notes' => $this->notes,
-            'feature_flags' => $this->feature_flags ?? ['dates' => false, 'delegation' => false],
+            'bio' => $this->bio,
+            'avatar_url' => $this->avatar_url,
+            'feature_flags' => array_merge(
+                ['dates' => false, 'delegation' => false],
+                $this->feature_flags ?? []
+            ),
+            'available_feature_flags' => AppSetting::globalFeatureFlags(),
             'email_verified_at' => $this->email_verified_at?->toIso8601String(),
             'is_admin' => $this->is_admin,
             'created_at' => $this->created_at?->toIso8601String(),

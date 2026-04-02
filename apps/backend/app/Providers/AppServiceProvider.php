@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Contracts\NotificationServiceInterface;
+use App\Events\ModelChanged;
+use App\Listeners\AuditAuthEvents;
+use App\Listeners\AuditModelChanges;
 use App\Services\NotificationService;
 use App\Services\WebPushService;
 use App\Services\WebPushServiceInterface;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,6 +34,9 @@ final class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
+
+        Event::listen(ModelChanged::class, AuditModelChanges::class);
+        Event::subscribe(AuditAuthEvents::class);
     }
 
     /**

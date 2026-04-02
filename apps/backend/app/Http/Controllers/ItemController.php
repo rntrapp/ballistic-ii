@@ -89,7 +89,9 @@ final class ItemController extends Controller
             $query->active();
         }
 
-        if ($request->has('project_id')) {
+        if ($request->boolean('no_project')) {
+            $query->whereNull('project_id');
+        } elseif ($request->has('project_id')) {
             $query->where('project_id', $request->project_id);
         }
 
@@ -154,8 +156,8 @@ final class ItemController extends Controller
             $this->ensureConnection($owner, $validated['assignee_id']);
         }
 
-        // Auto-set completed_at if status is 'done'
-        if (($validated['status'] ?? null) === 'done') {
+        // Auto-set completed_at when an item is completed or cancelled.
+        if (in_array($validated['status'] ?? null, ['done', 'wontdo'], true)) {
             $validated['completed_at'] = now();
         }
 
@@ -220,13 +222,13 @@ final class ItemController extends Controller
         $currentUser = Auth::user();
         $isOwner = (string) $item->user_id === (string) $currentUser->id;
 
-        // Enforce field restrictions for assignees (they can only update status, assignee_notes, and self-unassign)
+        // Enforce field restrictions for assignees (they can only update status, description, assignee_notes, and self-unassign)
         if (! $isOwner) {
             $fieldsBeingUpdated = array_keys($validated);
             $policy = new ItemPolicy;
             if (! $policy->canAssigneeUpdateFields($currentUser, $item, $fieldsBeingUpdated, $validated)) {
                 return response()->json(
-                    ['message' => 'Assignees can only update status and notes.'],
+                    ['message' => 'Assignees can only update status, description, and notes.'],
                     Response::HTTP_FORBIDDEN
                 );
             }
@@ -249,11 +251,13 @@ final class ItemController extends Controller
             $this->ensureConnection($owner, $newAssigneeId);
         }
 
-        // Auto-manage completed_at based on status changes
+        // Auto-manage completed_at based on status changes.
         if (isset($validated['status'])) {
-            if ($validated['status'] === 'done' && $item->status !== 'done') {
+            if (in_array($validated['status'], ['done', 'wontdo'], true)
+                && $validated['status'] !== $item->status) {
                 $validated['completed_at'] = now();
-            } elseif ($validated['status'] !== 'done' && $item->status === 'done') {
+            } elseif (in_array($validated['status'], ['todo', 'doing'], true)
+                && in_array($item->status, ['done', 'wontdo'], true)) {
                 $validated['completed_at'] = null;
             }
         }
@@ -379,11 +383,11 @@ final class ItemController extends Controller
     }
 
     /**
-     * Reorder items by updating their positions.
+     * Reorder active items by updating their positions.
      *
      * Only the owner can reorder items (not assignees).
-     * This endpoint renumbers all non-submitted items to positions after the submitted
-     * range, preventing position conflicts with completed/cancelled items.
+     * Reordering is limited to active items (`todo` and `doing`) so completed
+     * and cancelled items keep their existing positions and timestamps.
      */
     public function reorder(Request $request): JsonResponse
     {
@@ -408,9 +412,15 @@ final class ItemController extends Controller
         DB::transaction(function () use ($validated, $submittedIds): void {
             // Collect only items owned by this user in a single query
             $ownedIds = Item::where('user_id', Auth::id())
+                ->whereIn('status', ['todo', 'doing'])
                 ->whereIn('id', $submittedIds)
                 ->pluck('id')
                 ->flip();
+            $reorderedItemIds = $ownedIds->keys()->all();
+
+            if ($reorderedItemIds === []) {
+                return;
+            }
 
             $maxPosition = -1;
 
@@ -425,11 +435,11 @@ final class ItemController extends Controller
                 }
             }
 
-            // Renumber non-submitted items to positions after the submitted range.
-            // This prevents position double-ups with completed/cancelled items
-            // that the client filters out before reordering.
+            // Renumber only other active items to positions after the submitted range.
+            // Completed/cancelled items are intentionally left untouched.
             $otherItemIds = Item::where('user_id', Auth::id())
-                ->whereNotIn('id', $submittedIds)
+                ->whereIn('status', ['todo', 'doing'])
+                ->whereNotIn('id', $reorderedItemIds)
                 ->orderBy('position')
                 ->pluck('id');
 

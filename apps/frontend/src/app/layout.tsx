@@ -1,12 +1,18 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Nunito } from "next/font/google";
+import { Inter, Source_Sans_3 } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 
-const nunito = Nunito({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["300", "400", "600", "700", "800"],
+  variable: "--font-ui",
+});
+
+const sourceSans = Source_Sans_3({
+  subsets: ["latin"],
+  variable: "--font-reading",
+  weight: ["400", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -36,7 +42,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`min-h-dvh bg-[var(--page-bg)] text-[var(--text)] ${nunito.className}`}
+        className={`${inter.variable} ${sourceSans.variable} min-h-dvh bg-[var(--page-bg)] text-[var(--text)] font-ui`}
       >
         <ServiceWorkerRegistration />
         <AuthProvider>

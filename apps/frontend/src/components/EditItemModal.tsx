@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { FocusTrap } from "focus-trap-react";
 import type { Item, Project, UserLookup } from "@/types";
 import { ItemForm } from "./ItemForm";
+import { useModal } from "@/hooks/useModal";
 
 interface EditItemModalProps {
   isOpen: boolean;
@@ -41,6 +43,7 @@ export function EditItemModal({
   onFavouriteToggled,
 }: EditItemModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  useModal(isOpen);
 
   // Handle submission - call onSubmit then close
   const handleSubmit = useCallback(
@@ -86,55 +89,59 @@ export function EditItemModal({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in"
       onClick={handleBackdropClick}
     >
-      <div
-        ref={modalRef}
-        className="w-[90vw] max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg bg-white p-6 shadow-xl animate-scale-in"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {item ? "Edit Task" : "New Task"}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-2 hover:bg-gray-100 transition-colors"
-            aria-label="Close"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              fill="none"
-              stroke="currentColor"
-              className="text-gray-500"
+      <FocusTrap focusTrapOptions={{ allowOutsideClick: true }}>
+        <div
+          ref={modalRef}
+          className="w-[90vw] max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg bg-white p-6 shadow-xl animate-scale-in"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {item ? "Edit Task" : "New Task"}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full p-2 hover:bg-gray-100 transition-colors"
+              aria-label="Close"
             >
-              <path
-                d="M18 6 6 18M6 6l12 12"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        </div>
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                className="text-gray-500"
+              >
+                <path
+                  d="M18 6 6 18M6 6l12 12"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
 
-        {/* ItemForm */}
-        <ItemForm
-          initial={item ?? undefined}
-          onSubmit={handleSubmit}
-          onCancel={onClose}
-          submitLabel={item ? "Save" : "Add"}
-          projects={projects}
-          onCreateProject={onCreateProject}
-          showAssignment={showAssignment}
-          favourites={favourites}
-          onFavouriteToggled={onFavouriteToggled}
-        />
-      </div>
+          {/* ItemForm */}
+          <ItemForm
+            initial={item ?? undefined}
+            onSubmit={handleSubmit}
+            onCancel={onClose}
+            submitLabel={item ? "Save" : "Add"}
+            projects={projects}
+            onCreateProject={onCreateProject}
+            showAssignment={showAssignment}
+            favourites={favourites}
+            onFavouriteToggled={onFavouriteToggled}
+          />
+        </div>
+      </FocusTrap>
     </div>
   );
 }

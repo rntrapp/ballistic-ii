@@ -160,7 +160,7 @@ export function ItemForm({
                 Description
               </label>
               <textarea
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm transition-all duration-200 focus:border-[var(--blue)] focus:ring-2 focus:ring-[var(--blue)]/20 focus:outline-none resize-none w-full"
+                className="font-reading rounded-md border border-slate-300 bg-white px-3 py-2 text-sm transition-all duration-200 focus:border-[var(--blue)] focus:ring-2 focus:ring-[var(--blue)]/20 focus:outline-none resize-none w-full"
                 rows={3}
                 placeholder="Add more details..."
                 value={description}
@@ -259,7 +259,7 @@ export function ItemForm({
                       My Notes
                     </label>
                     <textarea
-                      className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm transition-all duration-200 focus:border-[var(--blue)] focus:ring-2 focus:ring-[var(--blue)]/20 focus:outline-none resize-none w-full"
+                      className="font-reading rounded-md border border-slate-300 bg-white px-3 py-2 text-sm transition-all duration-200 focus:border-[var(--blue)] focus:ring-2 focus:ring-[var(--blue)]/20 focus:outline-none resize-none w-full"
                       rows={2}
                       placeholder="Add your notes about this task..."
                       value={assigneeNotes}
@@ -272,7 +272,7 @@ export function ItemForm({
                     <label className="block text-xs font-medium text-slate-500 mb-1">
                       Assignee Notes
                     </label>
-                    <p className="text-sm text-slate-600 bg-slate-50 rounded-md px-3 py-2">
+                    <p className="font-reading rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
                       {initial.assignee_notes}
                     </p>
                   </div>

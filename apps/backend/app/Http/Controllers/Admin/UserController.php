@@ -33,12 +33,13 @@ final class UserController extends Controller
         $query = User::query()
             ->select(['id', 'name', 'email', 'phone', 'is_admin', 'email_verified_at', 'created_at'])
             ->when($request->search, function (Builder $query, string $search) {
-                // Escape LIKE special characters to prevent SQL injection
-                $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
+                // Escape LIKE special characters to prevent pattern injection
+                // Use '!' as escape character for cross-database compatibility
+                $escapedSearch = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $search);
                 $query->where(function (Builder $q) use ($escapedSearch) {
-                    $q->whereRaw('LOWER(email) LIKE LOWER(?)', ["%{$escapedSearch}%"])
-                        ->orWhereRaw('LOWER(name) LIKE LOWER(?)', ["%{$escapedSearch}%"])
-                        ->orWhereRaw('LOWER(phone) LIKE LOWER(?)', ["%{$escapedSearch}%"]);
+                    $q->whereRaw("LOWER(email) LIKE LOWER(?) ESCAPE '!'", ["%{$escapedSearch}%"])
+                        ->orWhereRaw("LOWER(name) LIKE LOWER(?) ESCAPE '!'", ["%{$escapedSearch}%"])
+                        ->orWhereRaw("LOWER(phone) LIKE LOWER(?) ESCAPE '!'", ["%{$escapedSearch}%"]);
                 });
             })
             ->when($request->has('is_admin'), function (Builder $query) use ($request) {
@@ -180,23 +181,6 @@ final class UserController extends Controller
         if ((string) $user->id === (string) $request->user()->id) {
             abort(Response::HTTP_FORBIDDEN, 'You cannot delete your own account.');
         }
-
-        // Log the deletion (preserve actor info for audit trail)
-        AuditLog::create([
-            'user_id' => $request->user()->id,
-            'action' => 'user_deleted',
-            'resource_type' => 'user',
-            'resource_id' => $user->id,
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'status' => 'success',
-            'metadata' => [
-                'actor_name' => $request->user()->name,
-                'actor_email' => $request->user()->email,
-                'deleted_user_email' => $user->email,
-                'deleted_user_name' => $user->name,
-            ],
-        ]);
 
         $user->delete();
 
